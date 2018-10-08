@@ -1,0 +1,17 @@
+## Interface: 80000
+## Title: xanGoldMine
+## Notes: Tracks gold progression on characters.
+## Author: Xruptor
+## Version: 1.0
+## X-Curse-Project-ID: 22072
+## X-WoWI-ID: 15353
+## OptionalDeps: tekDebug
+## SavedVariablesPerCharacter: XanGM_DB
+
+libs\LibStub\LibStub.lua
+libs\AceLocale-3.0\AceLocale-3.0.xml
+
+locale\enUS.lua
+
+xanGoldMine.lua
+config.lua
