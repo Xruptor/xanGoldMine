@@ -7,8 +7,6 @@ addon = _G[ADDON_NAME]
 
 local L = LibStub("AceLocale-3.0"):GetLocale(ADDON_NAME)
 
-local start, max, starttime, startlevel
-
 addon:SetScript("OnEvent", function(self, event, ...) if self[event] then return self[event](self, event, ...) end end)
 
 local debugf = tekDebug and tekDebug:GetFrame(ADDON_NAME)
@@ -16,44 +14,32 @@ local function Debug(...)
     if debugf then debugf:AddMessage(string.join(", ", tostringall(...))) end
 end
 
-local function GetPlayerMoney()
-	return (GetMoney() or 0) - GetCursorMoney() - GetPlayerTradeMoney()
-end
+local questHistory = {}
+local start, max, starttime, startlevel
+
+local startMoney, startQuestMoney = 0, 0
+
+local COPPER_PER_SILVER = 100
+local SILVER_PER_GOLD = 100
+local COPPER_PER_GOLD = COPPER_PER_SILVER * SILVER_PER_GOLD
 
 ----------------------
 --      Enable      --
 ----------------------
 
---trigger quest scans
--- local triggers = {
-	-- ["QUEST_COMPLETE"] = true,
-	-- ["UNIT_QUEST_LOG_CHANGED"] = true,
-	-- ["QUEST_WATCH_UPDATE"] = true,
-	-- ["QUEST_FINISHED"] = true,
-	-- ["QUEST_LOG_UPDATE"] = true,
--- }
+local function GetPlayerMoney()
+	return (GetMoney() or 0) - GetCursorMoney() - GetPlayerTradeMoney()
+end
 
---[[ 	function E:QUEST_ACCEPTED(questLogIndex, questID, ...)
-		if IsQuestTask(questID) then
-			-- print('TASK_QUEST_ACCEPTED', questID, questLogIndex, GetQuestLogTitle(questLogIndex))
-			local questName = C_TaskQuest.GetQuestInfoByQuestID(questID)
-			if questName then
-				ActiveWorldQuests[ questName ] = questID
-			end
-		else
-			-- print('QUEST_ACCEPTED', questID, questLogIndex, GetQuestLogTitle(questLogIndex))
-		end
-	end
+function addon:ReturnCoinValue(money)
+	if not money then return end
 	
-	function E:QUEST_REMOVED(questID)
-		local questName = C_TaskQuest.GetQuestInfoByQuestID(questID)
-		if questName and ActiveWorldQuests[ questName ] then
-			ActiveWorldQuests[ questName ] = nil
-			-- print('TASK_QUEST_REMOVED', questID, questName)
-			-- get task progress when it's updated to display on the nameplate
-			-- C_TaskQuest.GetQuestProgressBarInfo
-		end
-	end ]]
+	local gold = floor(money / (COPPER_PER_SILVER * SILVER_PER_GOLD))
+	local silver = floor((money - (gold * COPPER_PER_SILVER * SILVER_PER_GOLD)) / COPPER_PER_SILVER)
+	local copper = mod(money, COPPER_PER_SILVER)
+	
+	return gold, silver, copper
+end
 
 function addon:PLAYER_LOGIN()
 
@@ -71,14 +57,22 @@ function addon:PLAYER_LOGIN()
 	XanGM_DB[currentRealm][currentPlayer] = XanGM_DB[currentRealm][currentPlayer] or {}
 	addon.playerDB = XanGM_DB[currentRealm][currentPlayer]
 	
-	addon:PLAYER_MONEY()
+	addon:DoQuestLogScan()
 	
+	--addon:PLAYER_MONEY()
+	
+	-- function GoldCounter:GetTotalGoldForDisplay()
+	  -- return GoldCounter:comma_value(floor(GoldCounter.totalCopper / 100 / 100))
+	-- end
+
 	
 	--start, max, starttime = UnitXP("player"), UnitXPMax("player"), GetTime()
 	--startlevel = UnitLevel("player") + start/max
 	
-	
 	self:RegisterEvent("PLAYER_MONEY")
+	self:RegisterEvent("QUEST_ACCEPTED")
+	self:RegisterEvent("QUEST_REMOVED")
+	self:RegisterEvent("QUEST_TURNED_IN")
 
 	SLASH_XANGOLDMINE1 = "/xgm";
 	SlashCmdList["XANGOLDMINE"] = xanGoldMine_SlashCommand;
@@ -90,6 +84,84 @@ function addon:PLAYER_LOGIN()
 	self.PLAYER_LOGIN = nil
 end
 
+function addon:DoQuestLogScan()
+	for i=1, GetNumQuestLogEntries() do
+		local title, _, _, isHeader, _, _, _, questID = GetQuestLogTitle(i)
+		if not isHeader then
+			if questID and not questHistory[questID] then
+				questHistory[questID] = {
+					money = GetQuestLogRewardMoney(questID) or 0,
+					gotReward = false,
+					questID = questID,
+					title = title
+				}
+			end
+		end
+	end
+end
+
+function addon:QUEST_ACCEPTED(event, questLogIndex, questID)
+
+	if questID and not questHistory[questID] then
+	
+		questHistory[questID] = {
+			money = GetQuestLogRewardMoney(questID) or 0,
+			gotReward = false,
+			questID = questID
+		}
+		
+		--lets grab the title
+		local title = GetQuestLogTitle(questLogIndex)
+
+		if title then
+			questHistory[questID].title = title
+		else
+			for i=1, GetNumQuestLogEntries() do
+				local xTitle, _, _, _, _, _, _, xQuestID = GetQuestLogTitle(i)
+				if xQuestID and xQuestID == questID then
+					questHistory[questID].title = xTitle
+					return
+				end
+			end
+		end
+		
+	end
+
+end
+
+function addon:QUEST_REMOVED(event, questID)
+	if questHistory[questID] then
+		if not questHistory[questID].gotReward then
+			startQuestMoney = startQuestMoney + questHistory[questID].money
+		end
+		questHistory[questID] = nil
+	end
+end
+
+function addon:QUEST_TURNED_IN(event, questID, xpReward, moneyReward)
+
+	if questHistory[questID] then
+		questHistory[questID].gotReward = true
+	end
+	
+	startQuestMoney = startQuestMoney + moneyReward
+end
+
+hooksecurefunc("AbandonQuest", function()
+	local questID
+	
+	for k, v in pairs(questHistory) do
+		if v.title and v.title == GetAbandonQuestName() then
+			questID = k
+			break
+		end
+	end
+	
+	if questID and questHistory[questID] then
+		questHistory[questID] = nil
+	end
+end)
+	
 function xanGoldMine_SlashCommand(cmd)
 
 	local a,b,c=strfind(cmd, "(%S+)"); --contiguous string of non-space characters
@@ -146,7 +218,7 @@ function addon:CreateGoldFrame()
 	addon:EnableMouse(true);
 	
 	local t = addon:CreateTexture("$parentIcon", "ARTWORK")
-	t:SetTexture("Interface\\AddOns\\xanEXP\\icon")
+	t:SetTexture("Interface\\Icons\\INV_Misc_Coin_01")
 	t:SetWidth(16)
 	t:SetHeight(16)
 	t:SetPoint("TOPLEFT",5,-6)
@@ -178,14 +250,16 @@ function addon:CreateGoldFrame()
 
 	addon:SetScript("OnEnter",function()
 	
-		-- GameTooltip:SetOwner(self, "ANCHOR_NONE")
-		-- GameTooltip:SetPoint(self:GetTipAnchor(self))
-		-- GameTooltip:ClearLines()
+		GameTooltip:SetOwner(self, "ANCHOR_NONE")
+		GameTooltip:SetPoint(self:GetTipAnchor(self))
+		GameTooltip:ClearLines()
 
-		-- GameTooltip:AddLine(ADDON_NAME)
-		-- GameTooltip:AddLine(L.TooltipDragInfo, 64/255, 224/255, 208/255)
-		-- GameTooltip:AddLine(" ")
+		GameTooltip:AddLine(ADDON_NAME)
+		GameTooltip:AddLine(L.TooltipDragInfo, 64/255, 224/255, 208/255)
+		GameTooltip:AddLine(" ")
 		
+		GameTooltip:AddDoubleLine("QuestMoney", GetMoneyString(startQuestMoney), nil,nil,nil, 1,1,1)
+
 		-- local cur = UnitXP("player")
 		-- local maxXP = UnitXPMax("player")
 		-- local restXP = GetXPExhaustion() or 0
@@ -214,11 +288,10 @@ function addon:CreateGoldFrame()
 		-- GameTooltip:AddLine(xpGainedSession..L.TooltipSessionExpGained, 1,1,1)
 		-- GameTooltip:AddLine(string.format(L.TooltipSessionLevelsGained, ceil(UnitLevel("player") + cur/max - startlevel)), 1,1,1)
 		
-		-- GameTooltip:Show()
+		GameTooltip:Show()
 	end)
 	
-	
-	addon:Show();
+	addon:Show()
 end
 
 function addon:SaveLayout(frame)
@@ -286,13 +359,42 @@ end
 --      Event Handlers      --
 ------------------------------
 
-function addon:PLAYER_MONEY()
+local function FormatMoney(money)
+    local ret = ""
+    local gold = floor(money / (COPPER_PER_SILVER * SILVER_PER_GOLD));
+    local silver = floor((money - (gold * COPPER_PER_SILVER * SILVER_PER_GOLD)) / COPPER_PER_SILVER);
+    local copper = mod(money, COPPER_PER_SILVER);
+    if gold > 0 then
+        ret = gold .. " gold "
+    end
+    if silver > 0 or gold > 0 then
+        ret = ret .. silver .. " silver "
+    end
+    ret = ret .. copper .. " copper"
+    return ret
+end
+
+function addon:PLAYER_MONEY(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
+
+    local tmpMoney = GetMoney()
+    if self.CurrentMoney then
+        self.DiffMoney = tmpMoney - self.CurrentMoney
+    else
+        self.DiffMoney = 0
+    end
+    self.CurrentMoney = tmpMoney
+    if self.DiffMoney > 0 then
+        Debug("You gained" .. FormatMoney(self.DiffMoney) .. ".")
+    elseif self.DiffMoney < 0 then
+        Debug("You lost" .. FormatMoney(self.DiffMoney * -1) .. ".")
+    end
+	
+	
 	if not addon.playerDB.lifetime and GetPlayerMoney() > 0 then
 		addon.playerDB.lifetime = GetPlayerMoney()
 	end
 	
 	if addon.playerDB.lifetime == GetPlayerMoney() then return end --nothing has changed
-	
 	
 end
 

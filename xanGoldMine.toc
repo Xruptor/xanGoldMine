@@ -1,6 +1,6 @@
 ## Interface: 80000
 ## Title: xanGoldMine
-## Notes: Tracks gold progression on characters.
+## Notes: Tracks gold progression on your characters.
 ## Author: Xruptor
 ## Version: 1.0
 ## X-Curse-Project-ID: 22072
