@@ -16,7 +16,7 @@ end
 
 local questHistory = {}
 local playerSession = {}
-local starttime
+local starttime, startmoney
 local auditorTag
 
 local COPPER_PER_SILVER = 100
@@ -116,6 +116,7 @@ function addon:PLAYER_LOGIN()
 	DoQuestLogScan()
 	
 	starttime = GetTime()
+	startmoney = 0
 	
 	self:RegisterEvent("PLAYER_MONEY")
 	self:RegisterEvent("QUEST_ACCEPTED")
@@ -349,8 +350,8 @@ function addon:CreateGoldFrame()
 		GameTooltip:AddLine(L.TooltipDragInfo, 64/255, 224/255, 208/255)
 		GameTooltip:AddLine(" ")
 		
-		GameTooltip:AddLine(L.TooltipSession, 129/255, 209/255, 23/92)
-		GameTooltip:AddDoubleLine(L.TooltipTotalEarned, GetMoneyString(playerSession.money or 0, true), nil,nil,nil, 1,1,1)
+		GameTooltip:AddLine(L.TooltipSession, 129/255, 209/255, 23/255)
+		GameTooltip:AddDoubleLine(L.TooltipTotalEarned, playerSession.money and GetMoneyString(playerSession.money, true) or L.Waiting, nil,nil,nil, 1,1,1)
 		
 		if playerSession.netProfit then
 			local netProfit = playerSession.netProfit * -1 -- convert to positive number
@@ -359,6 +360,8 @@ function addon:CreateGoldFrame()
 			else
 				GameTooltip:AddDoubleLine(L.TooltipNetProfit, GetMoneyString(netProfit, true), nil,nil,nil, 0,1,0) -- green
 			end
+		else
+			GameTooltip:AddDoubleLine(L.TooltipNetProfit, L.Waiting, nil,nil,nil, 1, 204/255, 0)
 		end
 		if playerSession.lastMoneyDiff then
 			local lastDiff = playerSession.lastMoneyDiff * -1 -- convert to positive number
@@ -367,20 +370,24 @@ function addon:CreateGoldFrame()
 			else
 				GameTooltip:AddDoubleLine(L.TooltipLastTransaction, GetMoneyString(lastDiff, true), nil,nil,nil, 0,1,0) -- green
 			end
+		else
+			GameTooltip:AddDoubleLine(L.TooltipLastTransaction, L.Waiting, nil,nil,nil, 1, 204/255, 0)
 		end
 		
 		GameTooltip:AddLine(" ")
-		GameTooltip:AddDoubleLine(L.TooltipQuest, GetMoneyString(playerSession.quest or 0, true), nil,nil,nil, 1,1,1)
-		GameTooltip:AddDoubleLine(L.TooltipTaxi, GetMoneyString(playerSession.taxi or 0, true), nil,nil,nil, 1,1,1)
-		GameTooltip:AddDoubleLine(L.TooltipLoot, GetMoneyString(playerSession.loot or 0, true), nil,nil,nil, 1,1,1)
+		GameTooltip:AddDoubleLine(L.TooltipQuest, playerSession.quest and GetMoneyString(playerSession.quest, true) or L.Waiting, nil,nil,nil, 1,1,1)
+		GameTooltip:AddDoubleLine(L.TooltipTaxi, playerSession.taxi and GetMoneyString(playerSession.taxi, true) or L.Waiting, nil,nil,nil, 1,1,1)
+		GameTooltip:AddDoubleLine(L.TooltipLoot, playerSession.loot and GetMoneyString(playerSession.loot, true) or L.Waiting, nil,nil,nil, 1,1,1)
 	
 		GameTooltip:AddLine(" ")
-		GameTooltip:AddLine(L.TooltipLifetime, 129/255, 209/255, 23/92)
+		--GameTooltip:AddLine(L.TooltipLifetime, 129/255, 209/255, 23/255)
+		GameTooltip:AddLine(L.TooltipLifetime, 129/255, 209/255, 92/255)
+
 		GameTooltip:AddLine(" ")
-		GameTooltip:AddDoubleLine(L.TooltipTotalEarned, GetMoneyString(addon.player_LT.money or 0, true), nil,nil,nil, 1,1,1)
-		GameTooltip:AddDoubleLine(L.TooltipQuest, GetMoneyString(addon.player_LT.quest or 0, true), nil,nil,nil, 1,1,1)
-		GameTooltip:AddDoubleLine(L.TooltipTaxi, GetMoneyString(addon.player_LT.taxi or 0, true), nil,nil,nil, 1,1,1)
-		GameTooltip:AddDoubleLine(L.TooltipLoot, GetMoneyString(addon.player_LT.loot or 0, true), nil,nil,nil, 1,1,1)
+		GameTooltip:AddDoubleLine(L.TooltipTotalEarned, addon.player_LT.money and GetMoneyString(addon.player_LT.money, true) or L.Waiting, nil,nil,nil, 1,1,1)
+		GameTooltip:AddDoubleLine(L.TooltipQuest, addon.player_LT.quest and GetMoneyString(addon.player_LT.quest, true) or L.Waiting, nil,nil,nil, 1,1,1)
+		GameTooltip:AddDoubleLine(L.TooltipTaxi, addon.player_LT.taxi and GetMoneyString(addon.player_LT.taxi, true) or L.Waiting, nil,nil,nil, 1,1,1)
+		GameTooltip:AddDoubleLine(L.TooltipLoot, addon.player_LT.loot and GetMoneyString(addon.player_LT.loot, true) or L.Waiting, nil,nil,nil, 1,1,1)
 		
 
 		-- local cur = UnitXP("player")
