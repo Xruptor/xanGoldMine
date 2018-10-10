@@ -4,19 +4,19 @@ local L = LibStub("AceLocale-3.0"):NewLocale(ADDON_NAME, "enUS", true)
 if not L then return end
 
 L.SlashBG = "bg"
-L.SlashBGOn = "xanEXP: Background is now [|cFF99CC33SHOWN|r]"
-L.SlashBGOff = "xanEXP: Background is now [|cFF99CC33HIDDEN|r]"
+L.SlashBGOn = "xanGoldMine: Background is now [|cFF99CC33SHOWN|r]"
+L.SlashBGOff = "xanGoldMine: Background is now [|cFF99CC33HIDDEN|r]"
 L.SlashBGInfo = "Show the window background."
 
 L.SlashReset = "reset"
 L.SlashResetInfo = "Reset frame position."
-L.SlashResetAlert = "xanEXP: Frame position has been reset!"
+L.SlashResetAlert = "xanGoldMine: Frame position has been reset!"
 
 L.SlashScale = "scale"
-L.SlashScaleSet = "xanEXP: scale has been set to [|cFF20ff20%s|r]"
-L.SlashScaleSetInvalid = "xanEXP: scale invalid or number cannot be greater than 2"
-L.SlashScaleInfo = "Set the scale of the xanEXP frame (0-200)"
-L.SlashScaleText = "xanEXP Frame Scale"
+L.SlashScaleSet = "xanGoldMine: scale has been set to [|cFF20ff20%s|r]"
+L.SlashScaleSetInvalid = "xanGoldMine: scale invalid or number cannot be greater than 2"
+L.SlashScaleInfo = "Set the scale of the xanGoldMine frame (0-200)"
+L.SlashScaleText = "xanGoldMine Frame Scale"
 
 L.Waiting = "Waiting..."
 L.FormatDay = "d"
@@ -25,4 +25,13 @@ L.FormatMinute = "m"
 L.FormatSecond = "s"
 
 L.TooltipDragInfo = "[Hold Shift and Drag to move window.]"
+L.TooltipSession = "Session"
+L.TooltipLifetime = "Lifetime"
+L.TooltipTotalEarned = "Total Earned:"
+L.TooltipNetProfit = "Net Profit:"
+L.TooltipLastTransaction = "Last Transaction:"
+L.TooltipQuest = "Quest Rewards:"
+L.TooltipTaxi = "Taxi Fares:"
+L.TooltipLoot = "Money Looted:"
+
 

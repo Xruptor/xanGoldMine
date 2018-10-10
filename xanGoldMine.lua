@@ -31,22 +31,7 @@ local function GetPlayerMoney()
 	return (GetMoney() or 0) - GetCursorMoney() - GetPlayerTradeMoney()
 end
 
-local function FormatMoney(money)
-    local ret = ""
-    local gold = floor(money / (COPPER_PER_SILVER * SILVER_PER_GOLD));
-    local silver = floor((money - (gold * COPPER_PER_SILVER * SILVER_PER_GOLD)) / COPPER_PER_SILVER);
-    local copper = mod(money, COPPER_PER_SILVER);
-    if gold > 0 then
-        ret = gold .. " gold "
-    end
-    if silver > 0 or gold > 0 then
-        ret = ret .. silver .. " silver "
-    end
-    ret = ret .. copper .. " copper"
-    return ret
-end
-
-local function ReturnCoinValue(money)
+local function ReturnCoinValue(money, separateThousands)
 	if not money then return end
 	
 	local goldString, silverString, copperString
@@ -56,11 +41,20 @@ local function ReturnCoinValue(money)
 	local copper = mod(money, COPPER_PER_SILVER)
 	
 	if ( ENABLE_COLORBLIND_MODE == "1" ) then
+		if (separateThousands) then
+			goldString = FormatLargeNumber(gold)..GOLD_AMOUNT_SYMBOL
+		else
+			goldString = gold..GOLD_AMOUNT_SYMBOL
+		end
 		goldString = gold..GOLD_AMOUNT_SYMBOL
 		silverString = silver..SILVER_AMOUNT_SYMBOL
 		copperString = copper..COPPER_AMOUNT_SYMBOL
 	else
-		goldString = GOLD_AMOUNT_TEXTURE:format(gold, 0, 0)
+		if (separateThousands) then
+			goldString = GOLD_AMOUNT_TEXTURE_STRING:format(FormatLargeNumber(gold), 0, 0)
+		else
+			goldString = GOLD_AMOUNT_TEXTURE:format(gold, 0, 0)
+		end
 		silverString = SILVER_AMOUNT_TEXTURE:format(silver, 0, 0)
 		copperString = COPPER_AMOUNT_TEXTURE:format(copper, 0, 0)
 	end
@@ -121,15 +115,6 @@ function addon:PLAYER_LOGIN()
 
 	DoQuestLogScan()
 	
-	--addon:PLAYER_MONEY()
-	
-	--YOU_LOOT_MONEY
-	--CHAT_MSG_MONEY
-	--CHAT_MSG_LOOT
-	
-	--UnitOnTaxi("player")
-	--TAXIMAP_OPENED
-	
 	starttime = GetTime()
 	
 	self:RegisterEvent("PLAYER_MONEY")
@@ -154,18 +139,29 @@ end
 function addon:PLAYER_MONEY(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 
     local tmpMoney = GetPlayerMoney()
-    if self.CurrentMoney then
-        self.DiffMoney = tmpMoney - self.CurrentMoney
+	
+    if addon.player_DB.money then
+        self.DiffMoney = tmpMoney - addon.player_DB.money
     else
         self.DiffMoney = 0
     end
-    self.CurrentMoney = tmpMoney
-    -- if self.DiffMoney > 0 then
-        -- Debug("You gained" .. FormatMoney(self.DiffMoney) .. ".")
-    -- elseif self.DiffMoney < 0 then
-        -- Debug("You lost" .. FormatMoney(self.DiffMoney * -1) .. ".")
-    -- end
+	playerSession.lastMoneyDiff = self.DiffMoney
 	
+	--add to our current player money and calculate net profit
+	addon.player_DB.money = tmpMoney
+	playerSession.netProfit = playerSession.netProfit + self.DiffMoney
+	
+	--it's positive money so lets add it to our session and lifetime
+	if self.DiffMoney > 0 then
+		playerSession.money = (playerSession.money or 0) + self.DiffMoney
+		addon.player_LT.money = (addon.player_LT.money or 0) + self.DiffMoney
+		
+		local gold, silver, copper, goldString, silverString, copperString = ReturnCoinValue(playerSession.money, true)
+		if gold and gold > 0 then
+			addon.btnText:SetText(goldString)
+		end
+	end
+
 	if auditorTag then
 		if UnitOnTaxi("player") and auditorTag == "taxi" then
 			--diff comes in as negative so make it positive for storing
@@ -174,12 +170,6 @@ function addon:PLAYER_MONEY(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 			auditorTag = nil
 		end
 	end
-	
-	-- if not addon.player_DB.lifetime and GetPlayerMoney() > 0 then
-		-- addon.player_DB.lifetime = GetPlayerMoney()
-	-- end
-	
-	-- if addon.player_DB.lifetime == GetPlayerMoney() then return end --nothing has changed
 	
 end
 
@@ -317,15 +307,17 @@ function addon:CreateGoldFrame()
 	addon:EnableMouse(true);
 	
 	local t = addon:CreateTexture("$parentIcon", "ARTWORK")
-	t:SetTexture("Interface\\Icons\\INV_Misc_Coin_01")
+	--t:SetTexture("Interface\\Icons\\INV_Misc_Coin_01")
+	t:SetTexture("Interface\\Minimap\\Tracking\\Auctioneer")
 	t:SetWidth(16)
 	t:SetHeight(16)
 	t:SetPoint("TOPLEFT",5,-6)
 
-	local g = addon:CreateFontString("xanEXPText", "ARTWORK", "GameFontNormalSmall")
+	local g = addon:CreateFontString("xanGoldMineText", "ARTWORK", "GameFontNormalSmall")
 	g:SetJustifyH("LEFT")
 	g:SetPoint("CENTER",8,0)
 	g:SetText("?")
+	addon.btnText = g
 
 	addon:SetScript("OnMouseDown",function()
 		if (IsShiftKeyDown()) then
@@ -357,7 +349,39 @@ function addon:CreateGoldFrame()
 		GameTooltip:AddLine(L.TooltipDragInfo, 64/255, 224/255, 208/255)
 		GameTooltip:AddLine(" ")
 		
-		GameTooltip:AddDoubleLine("QuestMoney", GetMoneyString(playerSession.quest or 0), nil,nil,nil, 1,1,1)
+		GameTooltip:AddLine(L.TooltipSession, 129/255, 209/255, 23/92)
+		GameTooltip:AddDoubleLine(L.TooltipTotalEarned, GetMoneyString(playerSession.money or 0, true), nil,nil,nil, 1,1,1)
+		
+		if playerSession.netProfit then
+			local netProfit = playerSession.netProfit * -1 -- convert to positive number
+			if playerSession.netProfit < 0 then
+				GameTooltip:AddDoubleLine(L.TooltipNetProfit, GetMoneyString(netProfit, true), nil,nil,nil, 1,0,0) --red
+			else
+				GameTooltip:AddDoubleLine(L.TooltipNetProfit, GetMoneyString(netProfit, true), nil,nil,nil, 0,1,0) -- green
+			end
+		end
+		if playerSession.lastMoneyDiff then
+			local lastDiff = playerSession.lastMoneyDiff * -1 -- convert to positive number
+			if playerSession.lastMoneyDiff < 0 then
+				GameTooltip:AddDoubleLine(L.TooltipLastTransaction, GetMoneyString(lastDiff, true), nil,nil,nil, 1,0,0) --red
+			else
+				GameTooltip:AddDoubleLine(L.TooltipLastTransaction, GetMoneyString(lastDiff, true), nil,nil,nil, 0,1,0) -- green
+			end
+		end
+		
+		GameTooltip:AddLine(" ")
+		GameTooltip:AddDoubleLine(L.TooltipQuest, GetMoneyString(playerSession.quest or 0, true), nil,nil,nil, 1,1,1)
+		GameTooltip:AddDoubleLine(L.TooltipTaxi, GetMoneyString(playerSession.taxi or 0, true), nil,nil,nil, 1,1,1)
+		GameTooltip:AddDoubleLine(L.TooltipLoot, GetMoneyString(playerSession.loot or 0, true), nil,nil,nil, 1,1,1)
+	
+		GameTooltip:AddLine(" ")
+		GameTooltip:AddLine(L.TooltipLifetime, 129/255, 209/255, 23/92)
+		GameTooltip:AddLine(" ")
+		GameTooltip:AddDoubleLine(L.TooltipTotalEarned, GetMoneyString(addon.player_LT.money or 0, true), nil,nil,nil, 1,1,1)
+		GameTooltip:AddDoubleLine(L.TooltipQuest, GetMoneyString(addon.player_LT.quest or 0, true), nil,nil,nil, 1,1,1)
+		GameTooltip:AddDoubleLine(L.TooltipTaxi, GetMoneyString(addon.player_LT.taxi or 0, true), nil,nil,nil, 1,1,1)
+		GameTooltip:AddDoubleLine(L.TooltipLoot, GetMoneyString(addon.player_LT.loot or 0, true), nil,nil,nil, 1,1,1)
+		
 
 		-- local cur = UnitXP("player")
 		-- local maxXP = UnitXPMax("player")
