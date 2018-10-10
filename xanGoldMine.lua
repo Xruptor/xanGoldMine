@@ -15,9 +15,9 @@ local function Debug(...)
 end
 
 local questHistory = {}
-local start, max, starttime, startlevel
-
-local startMoney, startQuestMoney = 0, 0
+local playerSession = {}
+local starttime
+local auditorTag
 
 local COPPER_PER_SILVER = 100
 local SILVER_PER_GOLD = 100
@@ -31,15 +31,74 @@ local function GetPlayerMoney()
 	return (GetMoney() or 0) - GetCursorMoney() - GetPlayerTradeMoney()
 end
 
-function addon:ReturnCoinValue(money)
+local function FormatMoney(money)
+    local ret = ""
+    local gold = floor(money / (COPPER_PER_SILVER * SILVER_PER_GOLD));
+    local silver = floor((money - (gold * COPPER_PER_SILVER * SILVER_PER_GOLD)) / COPPER_PER_SILVER);
+    local copper = mod(money, COPPER_PER_SILVER);
+    if gold > 0 then
+        ret = gold .. " gold "
+    end
+    if silver > 0 or gold > 0 then
+        ret = ret .. silver .. " silver "
+    end
+    ret = ret .. copper .. " copper"
+    return ret
+end
+
+local function ReturnCoinValue(money)
 	if not money then return end
+	
+	local goldString, silverString, copperString
 	
 	local gold = floor(money / (COPPER_PER_SILVER * SILVER_PER_GOLD))
 	local silver = floor((money - (gold * COPPER_PER_SILVER * SILVER_PER_GOLD)) / COPPER_PER_SILVER)
 	local copper = mod(money, COPPER_PER_SILVER)
 	
-	return gold, silver, copper
+	if ( ENABLE_COLORBLIND_MODE == "1" ) then
+		goldString = gold..GOLD_AMOUNT_SYMBOL
+		silverString = silver..SILVER_AMOUNT_SYMBOL
+		copperString = copper..COPPER_AMOUNT_SYMBOL
+	else
+		goldString = GOLD_AMOUNT_TEXTURE:format(gold, 0, 0)
+		silverString = SILVER_AMOUNT_TEXTURE:format(silver, 0, 0)
+		copperString = COPPER_AMOUNT_TEXTURE:format(copper, 0, 0)
+	end
+	
+	return gold, silver, copper, goldString, silverString, copperString
 end
+
+local function DoQuestLogScan()
+	for i=1, GetNumQuestLogEntries() do
+		local title, _, _, isHeader, _, _, _, questID = GetQuestLogTitle(i)
+		if not isHeader then
+			if questID and not questHistory[questID] then
+				questHistory[questID] = {
+					money = GetQuestLogRewardMoney(questID) or 0,
+					gotReward = false,
+					questID = questID,
+					title = title
+				}
+			end
+		end
+	end
+end
+
+local function ChatMoneyScan(msg) 
+	local GOLD_SCAN_AMOUNT = string.gsub(GOLD_AMOUNT, "%%d", "(%%d+)")
+	local SILVER_SCAN_AMOUNT = string.gsub(SILVER_AMOUNT, "%%d", "(%%d+)")
+	local COPPER_SCAN_AMOUNT = string.gsub(COPPER_AMOUNT, "%%d", "(%%d+)")
+	local copper = string.match(msg, COPPER_SCAN_AMOUNT)
+	local silver = string.match(msg, SILVER_SCAN_AMOUNT)
+	local gold = string.match(msg, GOLD_SCAN_AMOUNT)
+	local money = (gold or 0) * 10000 + (silver or 0) * 100 + (copper or 0)
+	
+	return gold, silver, copper, money
+end
+
+------------------------------
+--      Event Handlers      --
+------------------------------
 
 function addon:PLAYER_LOGIN()
 
@@ -55,25 +114,33 @@ function addon:PLAYER_LOGIN()
 
 	XanGM_DB[currentRealm] = XanGM_DB[currentRealm] or {}
 	XanGM_DB[currentRealm][currentPlayer] = XanGM_DB[currentRealm][currentPlayer] or {}
-	addon.playerDB = XanGM_DB[currentRealm][currentPlayer]
+	addon.player_DB = XanGM_DB[currentRealm][currentPlayer]
 	
-	addon:DoQuestLogScan()
+	if not addon.player_DB.lifetime then addon.player_DB.lifetime = {} end
+	addon.player_LT = addon.player_DB.lifetime
+
+	DoQuestLogScan()
 	
 	--addon:PLAYER_MONEY()
 	
-	-- function GoldCounter:GetTotalGoldForDisplay()
-	  -- return GoldCounter:comma_value(floor(GoldCounter.totalCopper / 100 / 100))
-	-- end
-
+	--YOU_LOOT_MONEY
+	--CHAT_MSG_MONEY
+	--CHAT_MSG_LOOT
 	
-	--start, max, starttime = UnitXP("player"), UnitXPMax("player"), GetTime()
-	--startlevel = UnitLevel("player") + start/max
+	--UnitOnTaxi("player")
+	--TAXIMAP_OPENED
+	
+	starttime = GetTime()
 	
 	self:RegisterEvent("PLAYER_MONEY")
 	self:RegisterEvent("QUEST_ACCEPTED")
 	self:RegisterEvent("QUEST_REMOVED")
 	self:RegisterEvent("QUEST_TURNED_IN")
-
+	self:RegisterEvent("CHAT_MSG_MONEY")
+	self:RegisterEvent("TAXIMAP_OPENED")
+	
+	--MERCHANT_SHOW
+	
 	SLASH_XANGOLDMINE1 = "/xgm";
 	SlashCmdList["XANGOLDMINE"] = xanGoldMine_SlashCommand;
 	
@@ -84,20 +151,40 @@ function addon:PLAYER_LOGIN()
 	self.PLAYER_LOGIN = nil
 end
 
-function addon:DoQuestLogScan()
-	for i=1, GetNumQuestLogEntries() do
-		local title, _, _, isHeader, _, _, _, questID = GetQuestLogTitle(i)
-		if not isHeader then
-			if questID and not questHistory[questID] then
-				questHistory[questID] = {
-					money = GetQuestLogRewardMoney(questID) or 0,
-					gotReward = false,
-					questID = questID,
-					title = title
-				}
-			end
+function addon:PLAYER_MONEY(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
+
+    local tmpMoney = GetPlayerMoney()
+    if self.CurrentMoney then
+        self.DiffMoney = tmpMoney - self.CurrentMoney
+    else
+        self.DiffMoney = 0
+    end
+    self.CurrentMoney = tmpMoney
+    -- if self.DiffMoney > 0 then
+        -- Debug("You gained" .. FormatMoney(self.DiffMoney) .. ".")
+    -- elseif self.DiffMoney < 0 then
+        -- Debug("You lost" .. FormatMoney(self.DiffMoney * -1) .. ".")
+    -- end
+	
+	if auditorTag then
+		if UnitOnTaxi("player") and auditorTag == "taxi" then
+			--diff comes in as negative so make it positive for storing
+			playerSession.taxi = (playerSession.taxi or 0) + (self.DiffMoney * -1)
+			addon.player_LT.taxi = (addon.player_LT.taxi or 0) + (self.DiffMoney * -1)
+			auditorTag = nil
 		end
 	end
+	
+	-- if not addon.player_DB.lifetime and GetPlayerMoney() > 0 then
+		-- addon.player_DB.lifetime = GetPlayerMoney()
+	-- end
+	
+	-- if addon.player_DB.lifetime == GetPlayerMoney() then return end --nothing has changed
+	
+end
+
+function addon:TAXIMAP_OPENED()
+	auditorTag = "taxi"
 end
 
 function addon:QUEST_ACCEPTED(event, questLogIndex, questID)
@@ -132,20 +219,32 @@ end
 function addon:QUEST_REMOVED(event, questID)
 	if questHistory[questID] then
 		if not questHistory[questID].gotReward then
-			startQuestMoney = startQuestMoney + questHistory[questID].money
+			playerSession.quest = (playerSession.quest or 0) + questHistory[questID].money
+			addon.player_LT.quest = (addon.player_LT.quest or 0) + questHistory[questID].money
 		end
 		questHistory[questID] = nil
 	end
 end
 
 function addon:QUEST_TURNED_IN(event, questID, xpReward, moneyReward)
-
 	if questHistory[questID] then
 		questHistory[questID].gotReward = true
 	end
-	
-	startQuestMoney = startQuestMoney + moneyReward
+	playerSession.quest = (playerSession.quest or 0) + moneyReward
+	addon.player_LT.quest = (addon.player_LT.quest or 0) + moneyReward
 end
+
+function addon:CHAT_MSG_MONEY(event, msg)
+	local gold, silver, copper, money = ChatMoneyScan(msg) 
+	if money then
+		playerSession.loot = (playerSession.loot or 0) + money
+		addon.player_LT.loot = (addon.player_LT.loot or 0) + money
+	end
+end
+
+----------------------
+--      Utils      --
+----------------------
 
 hooksecurefunc("AbandonQuest", function()
 	local questID
@@ -161,7 +260,7 @@ hooksecurefunc("AbandonQuest", function()
 		questHistory[questID] = nil
 	end
 end)
-	
+
 function xanGoldMine_SlashCommand(cmd)
 
 	local a,b,c=strfind(cmd, "(%S+)"); --contiguous string of non-space characters
@@ -258,7 +357,7 @@ function addon:CreateGoldFrame()
 		GameTooltip:AddLine(L.TooltipDragInfo, 64/255, 224/255, 208/255)
 		GameTooltip:AddLine(" ")
 		
-		GameTooltip:AddDoubleLine("QuestMoney", GetMoneyString(startQuestMoney), nil,nil,nil, 1,1,1)
+		GameTooltip:AddDoubleLine("QuestMoney", GetMoneyString(playerSession.quest or 0), nil,nil,nil, 1,1,1)
 
 		-- local cur = UnitXP("player")
 		-- local maxXP = UnitXPMax("player")
@@ -353,49 +452,6 @@ function addon:BackgroundToggle()
 	else
 		addon:SetBackdrop(nil)
 	end
-end
-
-------------------------------
---      Event Handlers      --
-------------------------------
-
-local function FormatMoney(money)
-    local ret = ""
-    local gold = floor(money / (COPPER_PER_SILVER * SILVER_PER_GOLD));
-    local silver = floor((money - (gold * COPPER_PER_SILVER * SILVER_PER_GOLD)) / COPPER_PER_SILVER);
-    local copper = mod(money, COPPER_PER_SILVER);
-    if gold > 0 then
-        ret = gold .. " gold "
-    end
-    if silver > 0 or gold > 0 then
-        ret = ret .. silver .. " silver "
-    end
-    ret = ret .. copper .. " copper"
-    return ret
-end
-
-function addon:PLAYER_MONEY(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
-
-    local tmpMoney = GetMoney()
-    if self.CurrentMoney then
-        self.DiffMoney = tmpMoney - self.CurrentMoney
-    else
-        self.DiffMoney = 0
-    end
-    self.CurrentMoney = tmpMoney
-    if self.DiffMoney > 0 then
-        Debug("You gained" .. FormatMoney(self.DiffMoney) .. ".")
-    elseif self.DiffMoney < 0 then
-        Debug("You lost" .. FormatMoney(self.DiffMoney * -1) .. ".")
-    end
-	
-	
-	if not addon.playerDB.lifetime and GetPlayerMoney() > 0 then
-		addon.playerDB.lifetime = GetPlayerMoney()
-	end
-	
-	if addon.playerDB.lifetime == GetPlayerMoney() then return end --nothing has changed
-	
 end
 
 ------------------------
