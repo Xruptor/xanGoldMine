@@ -16,7 +16,7 @@ end
 
 local questHistory = {}
 local playerSession = {}
-local starttime, startmoney
+local starttime
 local auditorTag
 
 local COPPER_PER_SILVER = 100
@@ -116,7 +116,6 @@ function addon:PLAYER_LOGIN()
 	DoQuestLogScan()
 	
 	starttime = GetTime()
-	startmoney = 0
 	
 	self:RegisterEvent("PLAYER_MONEY")
 	self:RegisterEvent("QUEST_ACCEPTED")
@@ -159,6 +158,7 @@ function addon:PLAYER_MONEY(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 		
 		local gold, silver, copper, goldString, silverString, copperString = ReturnCoinValue(playerSession.money, true)
 		if gold and gold > 0 then
+			--only show gold earned, the rest is pointless
 			addon.btnText:SetText(goldString)
 		end
 	end
@@ -379,6 +379,21 @@ function addon:CreateGoldFrame()
 		GameTooltip:AddDoubleLine(L.TooltipTaxi, playerSession.taxi and GetMoneyString(playerSession.taxi, true) or L.Waiting, nil,nil,nil, 1,1,1)
 		GameTooltip:AddDoubleLine(L.TooltipLoot, playerSession.loot and GetMoneyString(playerSession.loot, true) or L.Waiting, nil,nil,nil, 1,1,1)
 	
+		if playerSession.money and playerSession.money > 0 then
+			local sessionTime = GetTime() - starttime
+			local goldPerSecond = ceil(playerSession.money / sessionTime)
+			local goldPerMinute = ceil(goldPerSecond * 60)
+			local goldPerHour = ceil(goldPerSecond * 3600)
+			
+			GameTooltip:AddDoubleLine(L.TooltipGoldPerSec, GetMoneyString(goldPerSecond, true), nil,nil,nil, 1,1,1)
+			GameTooltip:AddDoubleLine(L.TooltipGoldPerMinute, GetMoneyString(goldPerMinute, true), nil,nil,nil, 1,1,1)
+			GameTooltip:AddDoubleLine(L.TooltipGoldPerHour, GetMoneyString(goldPerHour, true), nil,nil,nil, 1,1,1)
+		else
+			GameTooltip:AddDoubleLine(L.TooltipGoldPerSec, L.Waiting, nil,nil,nil, 1, 204/255, 0)
+			GameTooltip:AddDoubleLine(L.TooltipGoldPerMinute, L.Waiting, nil,nil,nil, 1, 204/255, 0)
+			GameTooltip:AddDoubleLine(L.TooltipGoldPerHour, L.Waiting, nil,nil,nil, 1, 204/255, 0)
+		end
+	
 		GameTooltip:AddLine(" ")
 		--GameTooltip:AddLine(L.TooltipLifetime, 129/255, 209/255, 23/255)
 		GameTooltip:AddLine(L.TooltipLifetime, 129/255, 209/255, 92/255)
@@ -388,35 +403,6 @@ function addon:CreateGoldFrame()
 		GameTooltip:AddDoubleLine(L.TooltipQuest, addon.player_LT.quest and GetMoneyString(addon.player_LT.quest, true) or L.Waiting, nil,nil,nil, 1,1,1)
 		GameTooltip:AddDoubleLine(L.TooltipTaxi, addon.player_LT.taxi and GetMoneyString(addon.player_LT.taxi, true) or L.Waiting, nil,nil,nil, 1,1,1)
 		GameTooltip:AddDoubleLine(L.TooltipLoot, addon.player_LT.loot and GetMoneyString(addon.player_LT.loot, true) or L.Waiting, nil,nil,nil, 1,1,1)
-		
-
-		-- local cur = UnitXP("player")
-		-- local maxXP = UnitXPMax("player")
-		-- local restXP = GetXPExhaustion() or 0
-		-- local remainXP = maxXP - (cur + restXP)
-		-- local toLevelXPPercent = math.floor((maxXP - cur) / maxXP * 100)
-		
-        -- local sessionTime = GetTime() - starttime
-		-- local xpGainedSession = (cur - start)
-        -- local xpPerSecond = ceil(xpGainedSession / sessionTime)
-		-- local xpPerMinute = ceil(xpPerSecond * 60)
-        -- local xpPerHour = ceil(xpPerSecond * 3600)
-        -- local timeToLevel
-		-- if xpPerSecond <= 0 then
-			-- timeToLevel = L.TooltipTimeToLevelNone
-		-- else
-			-- timeToLevel = (maxXP - cur) / xpPerSecond
-		-- end
-		-- GameTooltip:AddDoubleLine(L.TooltipEXP, cur.."/"..max, nil,nil,nil, 1,1,1)
-		-- GameTooltip:AddDoubleLine(L.TooltipRest, string.format("%d%%", (GetXPExhaustion() or 0)/max*100), nil,nil,nil, 1,1,1)
-		-- GameTooltip:AddDoubleLine(L.TooltipToNextLevel, maxXP-cur..(" ("..toLevelXPPercent.."%)"), nil,nil,nil, 1,1,1)
-		-- GameTooltip:AddDoubleLine(L.TooltipXPPerSec, xpPerSecond, nil,nil,nil, 1,1,1)
-		-- GameTooltip:AddDoubleLine(L.TooltipXPPerMinute, xpPerMinute, nil,nil,nil, 1,1,1)
-		-- GameTooltip:AddDoubleLine(L.TooltipXPPerHour, xpPerHour, nil,nil,nil, 1,1,1)
-		-- GameTooltip:AddDoubleLine(L.TooltipTimeToLevel, FormatTime(timeToLevel), nil,nil,nil, 1,1,1)
-		-- GameTooltip:AddLine(string.format(L.TooltipSessionHoursPlayed, ceil(sessionTime/3600)), 1,1,1)
-		-- GameTooltip:AddLine(xpGainedSession..L.TooltipSessionExpGained, 1,1,1)
-		-- GameTooltip:AddLine(string.format(L.TooltipSessionLevelsGained, ceil(UnitLevel("player") + cur/max - startlevel)), 1,1,1)
 		
 		GameTooltip:Show()
 	end)

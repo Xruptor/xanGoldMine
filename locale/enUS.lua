@@ -34,4 +34,6 @@ L.TooltipQuest = "Quest Rewards:"
 L.TooltipTaxi = "Taxi Fares:"
 L.TooltipLoot = "Money Looted:"
 
-
+L.TooltipGoldPerSec = "Gold/Sec:"
+L.TooltipGoldPerMinute = "Gold/Minute:"
+L.TooltipGoldPerHour = "Gold/Hour:"
