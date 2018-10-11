@@ -90,6 +90,17 @@ local function ChatMoneyScan(msg)
 	return gold, silver, copper, money
 end
 
+local function updateRepairCost()
+	if CanMerchantRepair() then
+		local repairCost, canRepair = GetRepairAllCost()
+		if canRepair and repairCost > 0 then
+			if not addon.totalRepairCost or addon.totalRepairCost ~= repairCost then
+				addon.totalRepairCost = repairCost
+			end
+		end
+	end
+end
+
 ------------------------------
 --      Event Handlers      --
 ------------------------------
@@ -202,25 +213,38 @@ function addon:PLAYER_MONEY(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 		end
 		if addon.hasRepaired then
 			addon.hasRepaired = false
-			Debug("in-addon.hasRepaired", addon.totalRepairCost and GetMoneyString(addon.totalRepairCost, true) or 'Unknown')
+
 			playerSession.repairs = (playerSession.repairs or 0) + addon.totalRepairCost
 			addon.player_LT.repairs = (addon.player_LT.repairs or 0) + addon.totalRepairCost
+			
+			local previousRepairCost = addon.totalRepairCost
 			addon.totalRepairCost = 0
-			--don't do a return since we are using an external cost adjuster (totalRepairCost), we want to catch vendored items
+			
+			--did we do only repairs?
+			if (previousRepairCost + self.DiffMoney) == 0 then
+				--looks like we only did repairs since the money spent versus cost is zero, don't do merchant stuff
+				return
+			end
+			
+			Debug("repairs", previousRepairCost, self.DiffMoney)
+			
 		end
 		
 		playerSession.merchant = (playerSession.merchant or 0) + self.DiffMoney
 		addon.player_LT.merchant = (addon.player_LT.merchant or 0) + self.DiffMoney
 		
-		Debug("merchant-diff", self.DiffMoney and self.DiffMoney > 0 and GetMoneyString(self.DiffMoney, true) or 'Unknown')
+		if self.DiffMoney > 0 then
+			Debug("merchant-diff", GetMoneyString(self.DiffMoney, true) or 'Unknown')
+		else
+			Debug("merchant-diff", GetMoneyString(self.DiffMoney * -1, true) or 'Unknown')
+		end
 		Debug("merchant", playerSession.merchant and GetMoneyString(playerSession.merchant, true) or 'Unknown')
 		return
 	end
-	
+
 	--CATCHALL- the merchant auditorTag flag didn't set quick enough but repairs were done.  So lets calculate it
 	if addon.hasRepaired then
 		addon.hasRepaired = false
-		Debug("out-addon.hasRepaired", addon.totalRepairCost and GetMoneyString(addon.totalRepairCost, true) or 'Unknown')
 		playerSession.repairs = (playerSession.repairs or 0) + addon.totalRepairCost
 		addon.player_LT.repairs = (addon.player_LT.repairs or 0) + addon.totalRepairCost
 		addon.totalRepairCost = 0
@@ -287,19 +311,14 @@ function addon:CHAT_MSG_MONEY(event, msg)
 	end
 end
 
+--these merchant functions can be slow depending on other addons
 function addon:MERCHANT_SHOW()
-	auditorTag = "merchant"
-	if CanMerchantRepair() then
-		local repairCost, canRepair = GetRepairAllCost()
-		if canRepair and repairCost > 0 then
-			addon.totalRepairCost = repairCost
-		end
-	end
+	if not auditorTag or auditorTag ~= "merchant" then auditorTag = "merchant" end
+	updateRepairCost()
 end
 
-
 function addon:MERCHANT_CLOSED()
-	if auditorTag == "merchant" then auditorTag = nil end
+	if auditorTag and auditorTag == "merchant" then auditorTag = nil end
 end
 
 ----------------------
@@ -322,19 +341,20 @@ hooksecurefunc("AbandonQuest", function()
 end)
 
 hooksecurefunc("RepairAllItems", function(useGuildRepair, arg2)
-	if CanMerchantRepair() then
-		local repairCost, canRepair = GetRepairAllCost()
-		if canRepair and repairCost > 0 then
-			if not addon.totalRepairCost or addon.totalRepairCost ~= repairCost then
-				addon.totalRepairCost = repairCost
-			end
-		end
-	end
-	--we want to track OUR money not the guilds money
+	updateRepairCost()
+	--we want to track OUR money not the guilds money for repairs
 	if not useGuildRepair and not arg2 then 
 		addon.hasRepaired = true
-		Debug("RepairAllItems-2", auditorTag, addon.totalRepairCost, useGuildRepair, arg2)
 	end
+end)
+
+--these two merchant hooks are really catch alls if the registered event ones fail
+MerchantFrame:HookScript("OnShow", function(self)
+	if not auditorTag or auditorTag ~= "merchant" then auditorTag = "merchant" end
+	updateRepairCost()
+end)
+MerchantFrame:HookScript("OnHide", function(self)
+	if auditorTag and  auditorTag == "merchant" then auditorTag = nil end
 end)
 
 function xanGoldMine_SlashCommand(cmd)
