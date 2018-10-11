@@ -109,14 +109,16 @@ function addon:PLAYER_LOGIN()
 	XanGM_DB[currentRealm] = XanGM_DB[currentRealm] or {}
 	XanGM_DB[currentRealm][currentPlayer] = XanGM_DB[currentRealm][currentPlayer] or {}
 	addon.player_DB = XanGM_DB[currentRealm][currentPlayer]
+	if not addon.player_DB.money then addon.player_DB.money = GetPlayerMoney() end
 	
 	if not addon.player_DB.lifetime then addon.player_DB.lifetime = {} end
 	addon.player_LT = addon.player_DB.lifetime
-
+	if not addon.player_LT.money then addon.player_LT.money = GetPlayerMoney() end
+	
 	DoQuestLogScan()
 	
 	starttime = GetTime()
-	
+
 	self:RegisterEvent("PLAYER_MONEY")
 	self:RegisterEvent("QUEST_ACCEPTED")
 	self:RegisterEvent("QUEST_REMOVED")
@@ -145,11 +147,16 @@ function addon:PLAYER_MONEY(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
     else
         self.DiffMoney = 0
     end
-	playerSession.lastMoneyDiff = self.DiffMoney
-	
-	--add to our current player money and calculate net profit
 	addon.player_DB.money = tmpMoney
-	playerSession.netProfit = playerSession.netProfit + self.DiffMoney
+	
+	playerSession.lastMoneyDiff = self.DiffMoney
+	playerSession.netProfit = (playerSession.netProfit or 0) + self.DiffMoney
+	
+    -- if self.DiffMoney > 0 then
+        -- Debug("You gained " .. GetMoneyString(self.DiffMoney) .. ".")
+    -- elseif self.DiffMoney < 0 then
+        -- Debug("You lost " .. GetMoneyString(self.DiffMoney * -1) .. ".")
+    -- end
 	
 	--it's positive money so lets add it to our session and lifetime
 	if self.DiffMoney > 0 then
@@ -158,8 +165,14 @@ function addon:PLAYER_MONEY(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 		
 		local gold, silver, copper, goldString, silverString, copperString = ReturnCoinValue(playerSession.money, true)
 		if gold and gold > 0 then
-			--only show gold earned, the rest is pointless
+			--only show gold as priority
 			addon.btnText:SetText(goldString)
+		elseif silver and silver > 0 then
+			--as a backup show silver
+			addon.btnText:SetText(silverString)
+		elseif copper and copper > 0 then
+			--last resort copper
+			addon.btnText:SetText(copperString)
 		end
 	end
 
@@ -350,25 +363,27 @@ function addon:CreateGoldFrame()
 		GameTooltip:AddLine(L.TooltipDragInfo, 64/255, 224/255, 208/255)
 		GameTooltip:AddLine(" ")
 		
-		GameTooltip:AddLine(L.TooltipSession, 129/255, 209/255, 23/255)
+		GameTooltip:AddDoubleLine(L.TooltipTotalGold, addon.player_DB.money and GetMoneyString(addon.player_DB.money, true) or L.Waiting, 129/255, 209/255, 92/255, 1,1,1)
+		
+		GameTooltip:AddLine(" ")
+		GameTooltip:AddLine(L.TooltipSession, 64/255, 224/255, 208/255)
 		GameTooltip:AddDoubleLine(L.TooltipTotalEarned, playerSession.money and GetMoneyString(playerSession.money, true) or L.Waiting, nil,nil,nil, 1,1,1)
 		
 		if playerSession.netProfit then
-			local netProfit = playerSession.netProfit * -1 -- convert to positive number
-			if playerSession.netProfit < 0 then
-				GameTooltip:AddDoubleLine(L.TooltipNetProfit, GetMoneyString(netProfit, true), nil,nil,nil, 1,0,0) --red
+			if playerSession.netProfit > 0 then
+				GameTooltip:AddDoubleLine(L.TooltipNetProfit, GetMoneyString(playerSession.netProfit, true), nil,nil,nil, 0,1,0)
 			else
-				GameTooltip:AddDoubleLine(L.TooltipNetProfit, GetMoneyString(netProfit, true), nil,nil,nil, 0,1,0) -- green
+				GameTooltip:AddDoubleLine(L.TooltipNetProfit, GetMoneyString(playerSession.netProfit * -1, true), nil,nil,nil, 1,0,0) --red
 			end
 		else
 			GameTooltip:AddDoubleLine(L.TooltipNetProfit, L.Waiting, nil,nil,nil, 1, 204/255, 0)
 		end
+		
 		if playerSession.lastMoneyDiff then
-			local lastDiff = playerSession.lastMoneyDiff * -1 -- convert to positive number
-			if playerSession.lastMoneyDiff < 0 then
-				GameTooltip:AddDoubleLine(L.TooltipLastTransaction, GetMoneyString(lastDiff, true), nil,nil,nil, 1,0,0) --red
+			if playerSession.lastMoneyDiff > 0 then
+				GameTooltip:AddDoubleLine(L.TooltipLastTransaction, GetMoneyString(playerSession.lastMoneyDiff, true), nil,nil,nil, 1,1,1)
 			else
-				GameTooltip:AddDoubleLine(L.TooltipLastTransaction, GetMoneyString(lastDiff, true), nil,nil,nil, 0,1,0) -- green
+				GameTooltip:AddDoubleLine(L.TooltipLastTransaction, GetMoneyString(playerSession.lastMoneyDiff * -1, true), nil,nil,nil, 1,0,0) --red
 			end
 		else
 			GameTooltip:AddDoubleLine(L.TooltipLastTransaction, L.Waiting, nil,nil,nil, 1, 204/255, 0)
@@ -378,27 +393,26 @@ function addon:CreateGoldFrame()
 		GameTooltip:AddDoubleLine(L.TooltipQuest, playerSession.quest and GetMoneyString(playerSession.quest, true) or L.Waiting, nil,nil,nil, 1,1,1)
 		GameTooltip:AddDoubleLine(L.TooltipTaxi, playerSession.taxi and GetMoneyString(playerSession.taxi, true) or L.Waiting, nil,nil,nil, 1,1,1)
 		GameTooltip:AddDoubleLine(L.TooltipLoot, playerSession.loot and GetMoneyString(playerSession.loot, true) or L.Waiting, nil,nil,nil, 1,1,1)
-	
+		
 		if playerSession.money and playerSession.money > 0 then
 			local sessionTime = GetTime() - starttime
 			local goldPerSecond = ceil(playerSession.money / sessionTime)
 			local goldPerMinute = ceil(goldPerSecond * 60)
 			local goldPerHour = ceil(goldPerSecond * 3600)
 			
+			GameTooltip:AddLine(" ")
 			GameTooltip:AddDoubleLine(L.TooltipGoldPerSec, GetMoneyString(goldPerSecond, true), nil,nil,nil, 1,1,1)
 			GameTooltip:AddDoubleLine(L.TooltipGoldPerMinute, GetMoneyString(goldPerMinute, true), nil,nil,nil, 1,1,1)
 			GameTooltip:AddDoubleLine(L.TooltipGoldPerHour, GetMoneyString(goldPerHour, true), nil,nil,nil, 1,1,1)
 		else
+			GameTooltip:AddLine(" ")
 			GameTooltip:AddDoubleLine(L.TooltipGoldPerSec, L.Waiting, nil,nil,nil, 1, 204/255, 0)
 			GameTooltip:AddDoubleLine(L.TooltipGoldPerMinute, L.Waiting, nil,nil,nil, 1, 204/255, 0)
 			GameTooltip:AddDoubleLine(L.TooltipGoldPerHour, L.Waiting, nil,nil,nil, 1, 204/255, 0)
 		end
 	
 		GameTooltip:AddLine(" ")
-		--GameTooltip:AddLine(L.TooltipLifetime, 129/255, 209/255, 23/255)
-		GameTooltip:AddLine(L.TooltipLifetime, 129/255, 209/255, 92/255)
-
-		GameTooltip:AddLine(" ")
+		GameTooltip:AddLine(L.TooltipLifetime, 64/255, 224/255, 208/255)
 		GameTooltip:AddDoubleLine(L.TooltipTotalEarned, addon.player_LT.money and GetMoneyString(addon.player_LT.money, true) or L.Waiting, nil,nil,nil, 1,1,1)
 		GameTooltip:AddDoubleLine(L.TooltipQuest, addon.player_LT.quest and GetMoneyString(addon.player_LT.quest, true) or L.Waiting, nil,nil,nil, 1,1,1)
 		GameTooltip:AddDoubleLine(L.TooltipTaxi, addon.player_LT.taxi and GetMoneyString(addon.player_LT.taxi, true) or L.Waiting, nil,nil,nil, 1,1,1)
