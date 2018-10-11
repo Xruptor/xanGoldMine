@@ -126,7 +126,8 @@ function addon:PLAYER_LOGIN()
 	self:RegisterEvent("CHAT_MSG_MONEY")
 	self:RegisterEvent("TAXIMAP_OPENED")
 	
-	--MERCHANT_SHOW
+	self:RegisterEvent("MERCHANT_SHOW")
+	self:RegisterEvent("MERCHANT_CLOSED")
 	
 	SLASH_XANGOLDMINE1 = "/xgm";
 	SlashCmdList["XANGOLDMINE"] = xanGoldMine_SlashCommand;
@@ -152,12 +153,6 @@ function addon:PLAYER_MONEY(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 	playerSession.lastMoneyDiff = self.DiffMoney
 	playerSession.netProfit = (playerSession.netProfit or 0) + self.DiffMoney
 	
-    -- if self.DiffMoney > 0 then
-        -- Debug("You gained " .. GetMoneyString(self.DiffMoney) .. ".")
-    -- elseif self.DiffMoney < 0 then
-        -- Debug("You lost " .. GetMoneyString(self.DiffMoney * -1) .. ".")
-    -- end
-	
 	--it's positive money so lets add it to our session and lifetime
 	if self.DiffMoney > 0 then
 		playerSession.money = (playerSession.money or 0) + self.DiffMoney
@@ -174,17 +169,63 @@ function addon:PLAYER_MONEY(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 			--last resort copper
 			addon.btnText:SetText(copperString)
 		end
+	else
+		playerSession.spent = (playerSession.spent or 0) + self.DiffMoney
+		addon.player_LT.spent = (addon.player_LT.spent or 0) + self.DiffMoney
 	end
 
-	if auditorTag then
-		if UnitOnTaxi("player") and auditorTag == "taxi" then
-			--diff comes in as negative so make it positive for storing
-			playerSession.taxi = (playerSession.taxi or 0) + (self.DiffMoney * -1)
-			addon.player_LT.taxi = (addon.player_LT.taxi or 0) + (self.DiffMoney * -1)
-			auditorTag = nil
+	if auditorTag and auditorTag == "taxi" and UnitOnTaxi("player") then
+		--diff comes in as negative so make it positive for storing
+		playerSession.taxi = (playerSession.taxi or 0) + (self.DiffMoney * -1)
+		addon.player_LT.taxi = (addon.player_LT.taxi or 0) + (self.DiffMoney * -1)
+		auditorTag = nil
+		return
+	end
+
+	local checkMerchant = false
+	
+	if auditorTag and auditorTag == "merchant" then
+		checkMerchant = true
+	elseif MerchantFrame and MerchantFrame:IsVisible() then
+		--sometimes other addons fire Merchant_Show faster than we do and already perform actions like repairs
+		--This is a catch all to check if the merchant frame is even opened.
+		checkMerchant = true
+	end
+
+	if checkMerchant then
+		--if they are in repair mode and haven't clicked repair all
+		if InRepairMode() then
+			playerSession.repairs = (playerSession.repairs or 0) + (self.DiffMoney * -1)
+			addon.player_LT.repairs = (addon.player_LT.repairs or 0) + (self.DiffMoney * -1)
+			--so long as their in repair mode they shouldn't be selling anything so return
+			return
 		end
+		if addon.hasRepaired then
+			addon.hasRepaired = false
+			Debug("in-addon.hasRepaired", addon.totalRepairCost and GetMoneyString(addon.totalRepairCost, true) or 'Unknown')
+			playerSession.repairs = (playerSession.repairs or 0) + addon.totalRepairCost
+			addon.player_LT.repairs = (addon.player_LT.repairs or 0) + addon.totalRepairCost
+			addon.totalRepairCost = 0
+			--don't do a return since we are using an external cost adjuster (totalRepairCost), we want to catch vendored items
+		end
+		
+		playerSession.merchant = (playerSession.merchant or 0) + self.DiffMoney
+		addon.player_LT.merchant = (addon.player_LT.merchant or 0) + self.DiffMoney
+		
+		Debug("merchant-diff", self.DiffMoney and self.DiffMoney > 0 and GetMoneyString(self.DiffMoney, true) or 'Unknown')
+		Debug("merchant", playerSession.merchant and GetMoneyString(playerSession.merchant, true) or 'Unknown')
+		return
 	end
 	
+	--CATCHALL- the merchant auditorTag flag didn't set quick enough but repairs were done.  So lets calculate it
+	if addon.hasRepaired then
+		addon.hasRepaired = false
+		Debug("out-addon.hasRepaired", addon.totalRepairCost and GetMoneyString(addon.totalRepairCost, true) or 'Unknown')
+		playerSession.repairs = (playerSession.repairs or 0) + addon.totalRepairCost
+		addon.player_LT.repairs = (addon.player_LT.repairs or 0) + addon.totalRepairCost
+		addon.totalRepairCost = 0
+	end
+		
 end
 
 function addon:TAXIMAP_OPENED()
@@ -246,6 +287,21 @@ function addon:CHAT_MSG_MONEY(event, msg)
 	end
 end
 
+function addon:MERCHANT_SHOW()
+	auditorTag = "merchant"
+	if CanMerchantRepair() then
+		local repairCost, canRepair = GetRepairAllCost()
+		if canRepair and repairCost > 0 then
+			addon.totalRepairCost = repairCost
+		end
+	end
+end
+
+
+function addon:MERCHANT_CLOSED()
+	if auditorTag == "merchant" then auditorTag = nil end
+end
+
 ----------------------
 --      Utils      --
 ----------------------
@@ -262,6 +318,22 @@ hooksecurefunc("AbandonQuest", function()
 	
 	if questID and questHistory[questID] then
 		questHistory[questID] = nil
+	end
+end)
+
+hooksecurefunc("RepairAllItems", function(useGuildRepair, arg2)
+	if CanMerchantRepair() then
+		local repairCost, canRepair = GetRepairAllCost()
+		if canRepair and repairCost > 0 then
+			if not addon.totalRepairCost or addon.totalRepairCost ~= repairCost then
+				addon.totalRepairCost = repairCost
+			end
+		end
+	end
+	--we want to track OUR money not the guilds money
+	if not useGuildRepair and not arg2 then 
+		addon.hasRepaired = true
+		Debug("RepairAllItems-2", auditorTag, addon.totalRepairCost, useGuildRepair, arg2)
 	end
 end)
 
@@ -368,6 +440,7 @@ function addon:CreateGoldFrame()
 		GameTooltip:AddLine(" ")
 		GameTooltip:AddLine(L.TooltipSession, 64/255, 224/255, 208/255)
 		GameTooltip:AddDoubleLine(L.TooltipTotalEarned, playerSession.money and GetMoneyString(playerSession.money, true) or L.Waiting, nil,nil,nil, 1,1,1)
+		GameTooltip:AddDoubleLine(L.TooltipTotalSpent, playerSession.spent and GetMoneyString(playerSession.spent * -1, true) or L.Waiting, 1, 204/255, 0, 1,1,1)
 		
 		if playerSession.netProfit then
 			if playerSession.netProfit > 0 then
@@ -393,7 +466,19 @@ function addon:CreateGoldFrame()
 		GameTooltip:AddDoubleLine(L.TooltipQuest, playerSession.quest and GetMoneyString(playerSession.quest, true) or L.Waiting, nil,nil,nil, 1,1,1)
 		GameTooltip:AddDoubleLine(L.TooltipTaxi, playerSession.taxi and GetMoneyString(playerSession.taxi, true) or L.Waiting, nil,nil,nil, 1,1,1)
 		GameTooltip:AddDoubleLine(L.TooltipLoot, playerSession.loot and GetMoneyString(playerSession.loot, true) or L.Waiting, nil,nil,nil, 1,1,1)
+		GameTooltip:AddDoubleLine(L.TooltipRepairs, playerSession.repairs and GetMoneyString(playerSession.repairs, true) or L.Waiting, nil,nil,nil, 1,1,1)
 		
+		if playerSession.merchant then
+			if playerSession.merchant > 0 then
+				GameTooltip:AddDoubleLine(L.TooltipMerchant, GetMoneyString(playerSession.merchant, true), nil,nil,nil, 1,1,1)
+			else
+				GameTooltip:AddDoubleLine(L.TooltipMerchant, GetMoneyString(playerSession.merchant * -1, true), nil,nil,nil, 1,0,0) --red
+			end
+		else
+			GameTooltip:AddDoubleLine(L.TooltipMerchant, L.Waiting, nil,nil,nil, 1, 204/255, 0)
+		end
+		
+
 		if playerSession.money and playerSession.money > 0 then
 			local sessionTime = GetTime() - starttime
 			local goldPerSecond = ceil(playerSession.money / sessionTime)
@@ -414,9 +499,22 @@ function addon:CreateGoldFrame()
 		GameTooltip:AddLine(" ")
 		GameTooltip:AddLine(L.TooltipLifetime, 64/255, 224/255, 208/255)
 		GameTooltip:AddDoubleLine(L.TooltipTotalEarned, addon.player_LT.money and GetMoneyString(addon.player_LT.money, true) or L.Waiting, nil,nil,nil, 1,1,1)
+		GameTooltip:AddDoubleLine(L.TooltipTotalSpent, addon.player_LT.spent and GetMoneyString(addon.player_LT.spent * -1, true) or L.Waiting, 1, 204/255, 0, 1,1,1)
+		GameTooltip:AddLine(" ")
 		GameTooltip:AddDoubleLine(L.TooltipQuest, addon.player_LT.quest and GetMoneyString(addon.player_LT.quest, true) or L.Waiting, nil,nil,nil, 1,1,1)
 		GameTooltip:AddDoubleLine(L.TooltipTaxi, addon.player_LT.taxi and GetMoneyString(addon.player_LT.taxi, true) or L.Waiting, nil,nil,nil, 1,1,1)
 		GameTooltip:AddDoubleLine(L.TooltipLoot, addon.player_LT.loot and GetMoneyString(addon.player_LT.loot, true) or L.Waiting, nil,nil,nil, 1,1,1)
+		GameTooltip:AddDoubleLine(L.TooltipRepairs, addon.player_LT.repairs and GetMoneyString(addon.player_LT.repairs, true) or L.Waiting, nil,nil,nil, 1,1,1)
+		
+		if addon.player_LT.merchant then
+			if addon.player_LT.merchant > 0 then
+				GameTooltip:AddDoubleLine(L.TooltipMerchant, GetMoneyString(addon.player_LT.merchant, true), nil,nil,nil, 1,1,1)
+			else
+				GameTooltip:AddDoubleLine(L.TooltipMerchant, GetMoneyString(addon.player_LT.merchant * -1, true), nil,nil,nil, 1,0,0) --red
+			end
+		else
+			GameTooltip:AddDoubleLine(L.TooltipMerchant, L.Waiting, nil,nil,nil, 1, 204/255, 0)
+		end
 		
 		GameTooltip:Show()
 	end)
