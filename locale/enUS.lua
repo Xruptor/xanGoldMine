@@ -18,6 +18,18 @@ L.SlashScaleSetInvalid = "xanGoldMine: scale invalid or number cannot be greater
 L.SlashScaleInfo = "Set the scale of the xanGoldMine frame (0-200)"
 L.SlashScaleText = "xanGoldMine Frame Scale"
 
+L.SlashTotalEarned = "total"
+L.SlashTotalEarnedOn = "xanGoldMine: [|cFF99CC33Total Earned|r] is now [|cFF99CC33SHOWN|r]"
+L.SlashTotalEarnedOff = "xanGoldMine: [|cFF99CC33Net Profit|r] is now [|cFF99CC33SHOWN|r]"
+L.SlashTotalEarnedInfo = "Toggle between [|cFF99CC33Total Earned|r] instead of [|cFF99CC33Net Profit|r] as button text."
+L.SlashTotalEarnedChkBtn = "Show [|cFF99CC33Total Earned|r] instead of [|cFF99CC33Net Profit|r] as button text."
+
+L.SlashFontColor = "color"
+L.SlashFontColorOn = "xanGoldMine: Tooltip font color is now [|cFF99CC33YELLOW|r]"
+L.SlashFontColorOff = "xanGoldMine: Tooltip font color is now [|cFF99CC33WHITE|r]"
+L.SlashFontColorInfo = "Toggle between [|cFF99CC33WHITE|r] instead of [|cFF99CC33YELLOW|r] tooltip color."
+L.SlashFontColorChkBtn = "Show [|cFF99CC33YELLOW|r] instead of [|cFF99CC33WHITE|r] tooltip color."
+
 L.Waiting = "Waiting..."
 
 L.TooltipDragInfo = "[Hold Shift and Drag to move window.]"

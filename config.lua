@@ -203,6 +203,46 @@ function configEvent:PLAYER_LOGIN()
 	addConfigEntry(sliderScale, 0, -40)
 	addon.aboutPanel.sliderScale = sliderScale
 	
+	local btnTotalEarned = createCheckbutton(addon.aboutPanel, L.SlashTotalEarnedChkBtn)
+	btnTotalEarned:SetScript("OnShow", function() btnTotalEarned:SetChecked(XanGM_DB.showTotalEarned) end)
+	btnTotalEarned.func = function(slashSwitch)
+		local value = XanGM_DB.showTotalEarned
+		if not slashSwitch then value = btnTotalEarned:GetChecked() end
+
+		if value then
+			XanGM_DB.showTotalEarned = false
+			DEFAULT_CHAT_FRAME:AddMessage(L.SlashTotalEarnedOff)
+		else
+			XanGM_DB.showTotalEarned = true
+			DEFAULT_CHAT_FRAME:AddMessage(L.SlashTotalEarnedOn)
+		end
+		
+		addon:UpdateButtonText()
+	end
+	btnTotalEarned:SetScript("OnClick", btnTotalEarned.func)
+	
+	addConfigEntry(btnTotalEarned, 0, -30)
+	addon.aboutPanel.btnTotalEarned = btnTotalEarned
+	
+	local btnFontColor = createCheckbutton(addon.aboutPanel, L.SlashFontColorChkBtn)
+	btnFontColor:SetScript("OnShow", function() btnFontColor:SetChecked(XanGM_DB.fontColor) end)
+	btnFontColor.func = function(slashSwitch)
+		local value = XanGM_DB.fontColor
+		if not slashSwitch then value = btnFontColor:GetChecked() end
+
+		if value then
+			XanGM_DB.fontColor = false
+			DEFAULT_CHAT_FRAME:AddMessage(L.SlashFontColorOff)
+		else
+			XanGM_DB.fontColor = true
+			DEFAULT_CHAT_FRAME:AddMessage(L.SlashFontColorOn)
+		end
+	end
+	btnFontColor:SetScript("OnClick", btnFontColor.func)
+	
+	addConfigEntry(btnFontColor, 0, -20)
+	addon.aboutPanel.btnFontColor = btnFontColor
+	
 	configEvent:UnregisterEvent("PLAYER_LOGIN")
 end
 
