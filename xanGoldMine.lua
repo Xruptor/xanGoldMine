@@ -23,6 +23,8 @@ local COPPER_PER_SILVER = 100
 local SILVER_PER_GOLD = 100
 local COPPER_PER_GOLD = COPPER_PER_SILVER * SILVER_PER_GOLD
 
+local staticGMFWidth = 61
+
 ----------------------
 --      Enable      --
 ----------------------
@@ -180,6 +182,11 @@ function addon:PLAYER_MONEY(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 			--last resort copper
 			addon.btnText:SetText(copperString)
 		end
+		if (addon.btnText:GetStringWidth() + 40) > staticGMFWidth then
+			addon:SetWidth(addon.btnText:GetStringWidth() + 40)
+		else
+			addon:SetWidth(staticGMFWidth)
+		end
 	else
 		playerSession.spent = (playerSession.spent or 0) + self.DiffMoney
 		addon.player_LT.spent = (addon.player_LT.spent or 0) + self.DiffMoney
@@ -219,26 +226,22 @@ function addon:PLAYER_MONEY(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 			
 			local previousRepairCost = addon.totalRepairCost
 			addon.totalRepairCost = 0
-			
+
 			--did we do only repairs?
 			if (previousRepairCost + self.DiffMoney) == 0 then
 				--looks like we only did repairs since the money spent versus cost is zero, don't do merchant stuff
 				return
 			end
 			
-			Debug("repairs", previousRepairCost, self.DiffMoney)
-			
+			--NOTE:  This is primarily for folks who have addons that auto repair and freaking sell grays at the same time.
+			--we want to grab how much we actually got from vendoring not how much we got from vendoring minus the repair costs. 
+			--so lets add the repair costs back into the difference
+			self.DiffMoney = previousRepairCost + self.DiffMoney
 		end
 		
 		playerSession.merchant = (playerSession.merchant or 0) + self.DiffMoney
 		addon.player_LT.merchant = (addon.player_LT.merchant or 0) + self.DiffMoney
 		
-		if self.DiffMoney > 0 then
-			Debug("merchant-diff", GetMoneyString(self.DiffMoney, true) or 'Unknown')
-		else
-			Debug("merchant-diff", GetMoneyString(self.DiffMoney * -1, true) or 'Unknown')
-		end
-		Debug("merchant", playerSession.merchant and GetMoneyString(playerSession.merchant, true) or 'Unknown')
 		return
 	end
 
@@ -390,7 +393,7 @@ end
 
 function addon:CreateGoldFrame()
 
-	addon:SetWidth(61)
+	addon:SetWidth(staticGMFWidth)
 	addon:SetHeight(27)
 	addon:SetMovable(true)
 	addon:SetClampedToScreen(true)
@@ -423,6 +426,11 @@ function addon:CreateGoldFrame()
 	g:SetJustifyH("LEFT")
 	g:SetPoint("CENTER",8,0)
 	g:SetText("?")
+	if (g:GetStringWidth() + 40) > staticGMFWidth then
+		addon:SetWidth(g:GetStringWidth() + 40)
+	else
+		addon:SetWidth(staticGMFWidth)
+	end
 	addon.btnText = g
 
 	addon:SetScript("OnMouseDown",function()
@@ -460,7 +468,7 @@ function addon:CreateGoldFrame()
 		GameTooltip:AddLine(" ")
 		GameTooltip:AddLine(L.TooltipSession, 64/255, 224/255, 208/255)
 		GameTooltip:AddDoubleLine(L.TooltipTotalEarned, playerSession.money and GetMoneyString(playerSession.money, true) or L.Waiting, nil,nil,nil, 1,1,1)
-		GameTooltip:AddDoubleLine(L.TooltipTotalSpent, playerSession.spent and GetMoneyString(playerSession.spent * -1, true) or L.Waiting, 1, 204/255, 0, 1,1,1)
+		GameTooltip:AddDoubleLine(L.TooltipTotalSpent, playerSession.spent and GetMoneyString(playerSession.spent * -1, true) or L.Waiting, nil,nil,nil, 1,1,1)
 		
 		if playerSession.netProfit then
 			if playerSession.netProfit > 0 then
@@ -469,7 +477,7 @@ function addon:CreateGoldFrame()
 				GameTooltip:AddDoubleLine(L.TooltipNetProfit, GetMoneyString(playerSession.netProfit * -1, true), nil,nil,nil, 1,0,0) --red
 			end
 		else
-			GameTooltip:AddDoubleLine(L.TooltipNetProfit, L.Waiting, nil,nil,nil, 1, 204/255, 0)
+			GameTooltip:AddDoubleLine(L.TooltipNetProfit, L.Waiting, nil,nil,nil, 1,1,1)
 		end
 		
 		if playerSession.lastMoneyDiff then
@@ -479,7 +487,7 @@ function addon:CreateGoldFrame()
 				GameTooltip:AddDoubleLine(L.TooltipLastTransaction, GetMoneyString(playerSession.lastMoneyDiff * -1, true), nil,nil,nil, 1,0,0) --red
 			end
 		else
-			GameTooltip:AddDoubleLine(L.TooltipLastTransaction, L.Waiting, nil,nil,nil, 1, 204/255, 0)
+			GameTooltip:AddDoubleLine(L.TooltipLastTransaction, L.Waiting, nil,nil,nil, 1,1,1)
 		end
 		
 		GameTooltip:AddLine(" ")
@@ -495,7 +503,7 @@ function addon:CreateGoldFrame()
 				GameTooltip:AddDoubleLine(L.TooltipMerchant, GetMoneyString(playerSession.merchant * -1, true), nil,nil,nil, 1,0,0) --red
 			end
 		else
-			GameTooltip:AddDoubleLine(L.TooltipMerchant, L.Waiting, nil,nil,nil, 1, 204/255, 0)
+			GameTooltip:AddDoubleLine(L.TooltipMerchant, L.Waiting, nil,nil,nil, 1,1,1)
 		end
 		
 
@@ -511,15 +519,15 @@ function addon:CreateGoldFrame()
 			GameTooltip:AddDoubleLine(L.TooltipGoldPerHour, GetMoneyString(goldPerHour, true), nil,nil,nil, 1,1,1)
 		else
 			GameTooltip:AddLine(" ")
-			GameTooltip:AddDoubleLine(L.TooltipGoldPerSec, L.Waiting, nil,nil,nil, 1, 204/255, 0)
-			GameTooltip:AddDoubleLine(L.TooltipGoldPerMinute, L.Waiting, nil,nil,nil, 1, 204/255, 0)
-			GameTooltip:AddDoubleLine(L.TooltipGoldPerHour, L.Waiting, nil,nil,nil, 1, 204/255, 0)
+			GameTooltip:AddDoubleLine(L.TooltipGoldPerSec, L.Waiting, nil,nil,nil, 1,1,1)
+			GameTooltip:AddDoubleLine(L.TooltipGoldPerMinute, L.Waiting, nil,nil,nil, 1,1,1)
+			GameTooltip:AddDoubleLine(L.TooltipGoldPerHour, L.Waiting, nil,nil,nil, 1,1,1)
 		end
 	
 		GameTooltip:AddLine(" ")
 		GameTooltip:AddLine(L.TooltipLifetime, 64/255, 224/255, 208/255)
 		GameTooltip:AddDoubleLine(L.TooltipTotalEarned, addon.player_LT.money and GetMoneyString(addon.player_LT.money, true) or L.Waiting, nil,nil,nil, 1,1,1)
-		GameTooltip:AddDoubleLine(L.TooltipTotalSpent, addon.player_LT.spent and GetMoneyString(addon.player_LT.spent * -1, true) or L.Waiting, 1, 204/255, 0, 1,1,1)
+		GameTooltip:AddDoubleLine(L.TooltipTotalSpent, addon.player_LT.spent and GetMoneyString(addon.player_LT.spent * -1, true) or L.Waiting, nil,nil,nil, 1,1,1)
 		GameTooltip:AddLine(" ")
 		GameTooltip:AddDoubleLine(L.TooltipQuest, addon.player_LT.quest and GetMoneyString(addon.player_LT.quest, true) or L.Waiting, nil,nil,nil, 1,1,1)
 		GameTooltip:AddDoubleLine(L.TooltipTaxi, addon.player_LT.taxi and GetMoneyString(addon.player_LT.taxi, true) or L.Waiting, nil,nil,nil, 1,1,1)
@@ -533,7 +541,7 @@ function addon:CreateGoldFrame()
 				GameTooltip:AddDoubleLine(L.TooltipMerchant, GetMoneyString(addon.player_LT.merchant * -1, true), nil,nil,nil, 1,0,0) --red
 			end
 		else
-			GameTooltip:AddDoubleLine(L.TooltipMerchant, L.Waiting, nil,nil,nil, 1, 204/255, 0)
+			GameTooltip:AddDoubleLine(L.TooltipMerchant, L.Waiting, nil,nil,nil, 1,1,1)
 		end
 		
 		GameTooltip:Show()
