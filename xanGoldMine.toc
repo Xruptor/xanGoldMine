@@ -1,8 +1,8 @@
-## Interface: 80000
+## Interface: 80300
 ## Title: xanGoldMine
 ## Notes: Tracks gold progression on your characters.
 ## Author: Xruptor
-## Version: 1.1
+## Version: 1.3
 ## X-Curse-Project-ID: 304744
 ## X-WoWI-ID: 24842
 ## OptionalDeps: tekDebug

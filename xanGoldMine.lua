@@ -130,6 +130,11 @@ function addon:PLAYER_LOGIN()
 	addon.player_LT = addon.player_DB.lifetime
 	if not addon.player_LT.money then addon.player_LT.money = GetPlayerMoney() end
 	
+	if not addon.player_DB.lastSession then addon.player_DB.lastSession = {} end
+	addon.player_LASS = addon.player_DB.lastSession
+	addon.player_LASS.totalMoney = addon.player_LASS.sessionMoney or 0
+	addon.player_LASS.totalSpent = addon.player_LASS.sessionSpent or 0
+	
 	DoQuestLogScan()
 	
 	starttime = GetTime()
@@ -172,9 +177,11 @@ function addon:PLAYER_MONEY(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 	if self.DiffMoney > 0 then
 		playerSession.money = (playerSession.money or 0) + self.DiffMoney
 		addon.player_LT.money = (addon.player_LT.money or 0) + self.DiffMoney
+		addon.player_LASS.sessionMoney = playerSession.money or 0
 	else
 		playerSession.spent = (playerSession.spent or 0) + self.DiffMoney
 		addon.player_LT.spent = (addon.player_LT.spent or 0) + self.DiffMoney
+		addon.player_LASS.sessionSpent = playerSession.spent or 0
 	end
 	
 	addon:UpdateButtonText()
@@ -521,7 +528,13 @@ function addon:CreateGoldFrame()
 			GameTooltip:AddDoubleLine(L.TooltipGoldPerMinute, L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
 			GameTooltip:AddDoubleLine(L.TooltipGoldPerHour, L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
 		end
-	
+		
+		GameTooltip:AddLine(" ")
+		GameTooltip:AddLine(L.TooltipLastSession, 64/255, 224/255, 208/255)
+		
+		GameTooltip:AddDoubleLine(L.TooltipTotalEarned, addon.player_LASS.totalMoney and GetMoneyString(addon.player_LASS.totalMoney, true) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+		GameTooltip:AddDoubleLine(L.TooltipTotalSpent, addon.player_LASS.totalSpent and GetMoneyString(addon.player_LASS.totalSpent * -1, true) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+		
 		GameTooltip:AddLine(" ")
 		GameTooltip:AddLine(L.TooltipLifetime, 64/255, 224/255, 208/255)
 		GameTooltip:AddDoubleLine(L.TooltipTotalEarned, addon.player_LT.money and GetMoneyString(addon.player_LT.money, true) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
