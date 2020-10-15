@@ -14,6 +14,8 @@ local function Debug(...)
     if debugf then debugf:AddMessage(string.join(", ", tostringall(...))) end
 end
 
+local IsRetail = WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
+
 local questHistory = {}
 local playerSession = {}
 local starttime
@@ -65,19 +67,37 @@ local function ReturnCoinValue(money, separateThousands)
 end
 
 local function DoQuestLogScan()
-	for i=1, GetNumQuestLogEntries() do
-		local title, _, _, isHeader, _, _, _, questID = GetQuestLogTitle(i)
-		if not isHeader then
-			if questID and not questHistory[questID] then
-				questHistory[questID] = {
-					money = GetQuestLogRewardMoney(questID) or 0,
-					gotReward = false,
-					questID = questID,
-					title = title
-				}
+
+	if IsRetail then
+		for i=1, C_QuestLog.GetNumQuestLogEntries() do
+			local questInfo = C_QuestLog.GetInfo(i)
+			if not questInfo.isHeader then
+				if questInfo.questID and not questHistory[questInfo.questID] then
+					questHistory[questInfo.questID] = {
+						money = GetQuestLogRewardMoney(questInfo.questID) or 0,
+						gotReward = false,
+						questID = questInfo.questID,
+						title = questInfo.title
+					}
+				end
+			end
+		end
+	else
+		for i=1, GetNumQuestLogEntries() do
+			local title, _, _, isHeader, _, _, _, questID = GetQuestLogTitle(i)
+			if not isHeader then
+				if questID and not questHistory[questID] then
+					questHistory[questID] = {
+						money = GetQuestLogRewardMoney(questID) or 0,
+						gotReward = false,
+						questID = questID,
+						title = title
+					}
+				end
 			end
 		end
 	end
+	
 end
 
 local function ChatMoneyScan(msg) 
@@ -322,20 +342,43 @@ end
 --      Utils      --
 ----------------------
 
-hooksecurefunc("AbandonQuest", function()
-	local questID
-	
-	for k, v in pairs(questHistory) do
-		if v.title and v.title == GetAbandonQuestName() then
-			questID = k
-			break
+--QuestMapQuestOptions_AbandonQuest
+--https://www.townlong-yak.com/framexml/33062/StaticPopup.lua#2175
+--https://www.townlong-yak.com/framexml/36230/QuestMapFrame.lua
+
+if IsRetail then
+
+	hooksecurefunc(C_QuestLog, "AbandonQuest", function()
+		local questID
+		local title = QuestUtils_GetQuestName(C_QuestLog.GetAbandonQuest())
+
+		for k, v in pairs(questHistory) do
+			if v.title and v.title == title then
+				questID = k
+				break
+			end
 		end
-	end
+		if questID and questHistory[questID] then
+			questHistory[questID] = nil
+		end
+	end)
 	
-	if questID and questHistory[questID] then
-		questHistory[questID] = nil
-	end
-end)
+else
+	hooksecurefunc("AbandonQuest", function()
+		local questID
+		
+		for k, v in pairs(questHistory) do
+			if v.title and v.title == GetAbandonQuestName() then
+				questID = k
+				break
+			end
+		end
+		
+		if questID and questHistory[questID] then
+			questHistory[questID] = nil
+		end
+	end)
+end
 
 hooksecurefunc("RepairAllItems", function(useGuildRepair, arg2)
 	updateRepairCost()

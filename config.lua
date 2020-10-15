@@ -4,7 +4,7 @@ if not _G[ADDON_NAME] then
 end
 addon = _G[ADDON_NAME]
 
-addon.configEvent = CreateFrame("frame", ADDON_NAME.."_config_eventFrame", UIParent, BackdropTemplateMixin and "BackdropTemplate")
+addon.configEvent = CreateFrame("Frame", ADDON_NAME.."_config_eventFrame", UIParent, BackdropTemplateMixin and "BackdropTemplate")
 local configEvent = addon.configEvent
 configEvent:SetScript("OnEvent", function(self, event, ...) if self[event] then return self[event](self, event, ...) end end)
 
