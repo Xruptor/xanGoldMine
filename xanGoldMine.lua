@@ -274,32 +274,7 @@ function addon:TAXIMAP_OPENED()
 end
 
 function addon:QUEST_ACCEPTED(event, questLogIndex, questID)
-
-	if questID and not questHistory[questID] then
-	
-		questHistory[questID] = {
-			money = GetQuestLogRewardMoney(questID) or 0,
-			gotReward = false,
-			questID = questID
-		}
-		
-		--lets grab the title
-		local title = GetQuestLogTitle(questLogIndex)
-
-		if title then
-			questHistory[questID].title = title
-		else
-			for i=1, GetNumQuestLogEntries() do
-				local xTitle, _, _, _, _, _, _, xQuestID = GetQuestLogTitle(i)
-				if xQuestID and xQuestID == questID then
-					questHistory[questID].title = xTitle
-					return
-				end
-			end
-		end
-		
-	end
-
+	DoQuestLogScan()
 end
 
 function addon:QUEST_REMOVED(event, questID)

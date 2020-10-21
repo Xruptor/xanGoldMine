@@ -7,7 +7,7 @@
 ## Title: xanGoldMine
 ## Notes: Tracks gold progression on your characters.
 ## Author: Xruptor
-## Version: 1.6
+## Version: 1.7
 ## X-Curse-Project-ID: 304744
 ## X-WoWI-ID: 24842
 ## OptionalDeps: tekDebug
