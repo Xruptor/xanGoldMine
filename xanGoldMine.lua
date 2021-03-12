@@ -31,8 +31,83 @@ local staticGMFWidth = 61
 --      Enable      --
 ----------------------
 
+local CATEGORYID_WEALTH = 140
+local STATID_GOLD_AQUIRED = 328
+local STATID_QUEST_REWARDS = 326
+local STATID_LOOTED = 333
+local STATID_TRAVEL = 1146
+
+--get this from the Achievement panel under Statistics
+function GetStatisticByID(categoryID, statID)
+	if not IsRetail then return nil end
+	
+	for _, cID in pairs(GetStatisticsCategoryList()) do
+		if cID and cID == categoryID then
+			local Title, ParentCategoryId, Something = GetCategoryInfo(cID)
+		
+			local statisticCount = GetCategoryNumAchievements(cID)
+			for i = 1, statisticCount do
+				local idNum, Name, Points, Completed, Month, Day, Year, Description, Flags, Image, RewardText = GetAchievementInfo(cID, i)
+				--Debug(cID, idNum, Name, Points, Completed, Month, Day, Year, Description, Flags, Image, RewardText)
+				if idNum == statID then
+					return GetStatistic(idNum)
+				end
+			end
+		end
+	end
+	return nil
+end
+
 local function GetPlayerMoney()
 	return (GetMoney() or 0) - GetCursorMoney() - GetPlayerTradeMoney()
+end
+
+local function StripMoneyTextureString(moneyString)
+	if not moneyString then return nil end
+	
+	local gold
+	local silver
+	local copper
+	local total = 0
+	
+	-- COPPER_AMOUNT = "%d Copper";
+	-- COPPER_AMOUNT_SYMBOL = "c";
+	-- COPPER_AMOUNT_TEXTURE = "%d\124TInterface\\MoneyFrame\\UI-CopperIcon:%d:%d:2:0\124t";
+
+	-- GOLD_AMOUNT = "%d Gold";
+	-- GOLD_AMOUNT_SYMBOL = "g";
+	-- GOLD_AMOUNT_TEXTURE = "%d\124TInterface\\MoneyFrame\\UI-GoldIcon:%d:%d:2:0\124t";
+
+	-- SILVER_AMOUNT = "%d Silver";
+	-- SILVER_AMOUNT_SYMBOL = "s";
+	-- SILVER_AMOUNT_TEXTURE = "%d\124TInterface\\MoneyFrame\\UI-SilverIcon:%d:%d:2:0\124t";
+
+	--grab each texture string and strip it only returning the number at the front of |TInterface\\  \124 = |
+	for w in moneyString:gmatch("%S+") do
+		if not gold and string.find(w, "UI-GoldIcon", 1, true) then
+			gold = string.match(w,"%d+")
+		elseif not silver and string.find(w, "UI-SilverIcon", 1, true) then
+			silver = string.match(w,"%d+")
+		elseif not copper and string.find(w, "UI-CopperIcon", 1, true) then
+			copper = string.match(w,"%d+")
+		end
+	end
+	
+	if gold then
+		total = total + (gold * 10000) --gold to copper
+	end
+	if silver then
+		total = total + (silver * 100) --silver to copper
+	end
+	if copper then
+		total = total + copper 
+	end
+	
+	if gold or silver or copper then
+		return tonumber(gold), tonumber(silver), tonumber(copper), tonumber(total)
+	end
+
+	return nil
 end
 
 local function ReturnCoinValue(money, separateThousands)
@@ -116,11 +191,10 @@ local function updateRepairCost()
 	if CanMerchantRepair() then
 		local repairCost, canRepair = GetRepairAllCost()
 		if canRepair and repairCost > 0 then
-			if not addon.totalRepairCost or addon.totalRepairCost ~= repairCost then
-				addon.totalRepairCost = repairCost
-			end
+			return repairCost
 		end
 	end
+	return nil
 end
 
 ------------------------------
@@ -155,6 +229,8 @@ function addon:PLAYER_LOGIN()
 	addon.player_LASS.totalMoney = addon.player_LASS.sessionMoney or 0
 	addon.player_LASS.totalSpent = addon.player_LASS.sessionSpent or 0
 	
+	self:UpdateUsingAchievementStats()
+	
 	DoQuestLogScan()
 	
 	starttime = GetTime()
@@ -165,6 +241,7 @@ function addon:PLAYER_LOGIN()
 	self:RegisterEvent("QUEST_TURNED_IN")
 	self:RegisterEvent("CHAT_MSG_MONEY")
 	self:RegisterEvent("TAXIMAP_OPENED")
+	self:RegisterEvent("TAXIMAP_CLOSED")
 	
 	self:RegisterEvent("MERCHANT_SHOW")
 	self:RegisterEvent("MERCHANT_CLOSED")
@@ -179,7 +256,58 @@ function addon:PLAYER_LOGIN()
 	self.PLAYER_LOGIN = nil
 end
 
-function addon:PLAYER_MONEY(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
+function addon:UpdateUsingAchievementStats(specificID)
+	if not IsRetail then return end
+	
+	local statTotal, gold, silver, copper, totalNum
+	
+	if not specificID or specificID == "gold" then
+		--total gold aquired
+		statTotal = GetStatisticByID(CATEGORYID_WEALTH, STATID_GOLD_AQUIRED)
+		if statTotal then
+			gold, silver, copper, totalNum = StripMoneyTextureString(statTotal)
+			if gold and totalNum and totalNum >= 0 and addon.player_LT.money ~= totalNum then
+				addon.player_LT.money = totalNum
+			end
+		end
+	end
+
+	if not specificID or specificID == "quest" then
+		--total gold quests
+		statTotal = GetStatisticByID(CATEGORYID_WEALTH, STATID_QUEST_REWARDS)
+		if statTotal then
+			gold, silver, copper, totalNum = StripMoneyTextureString(statTotal)
+			if gold and totalNum and totalNum >= 0 and addon.player_LT.quest ~= totalNum then
+				addon.player_LT.quest = totalNum
+			end
+		end
+	end
+
+	if not specificID or specificID == "taxi" then	
+		--total gold taxi
+		statTotal = GetStatisticByID(CATEGORYID_WEALTH, STATID_TRAVEL)
+		if statTotal then
+			gold, silver, copper, totalNum = StripMoneyTextureString(statTotal)
+			if gold and totalNum and totalNum >= 0 and addon.player_LT.taxi ~= totalNum then
+				addon.player_LT.taxi = totalNum
+			end
+		end
+	end
+		
+	if not specificID or specificID == "loot" then
+		--total gold loot
+		statTotal = GetStatisticByID(CATEGORYID_WEALTH, STATID_LOOTED)
+		if statTotal then
+			gold, silver, copper, totalNum = StripMoneyTextureString(statTotal)
+			if gold and totalNum and totalNum >= 0 and addon.player_LT.loot ~= totalNum then
+				addon.player_LT.loot = totalNum
+			end
+		end
+	end
+
+end
+
+function addon:PLAYER_MONEY()
 
     local tmpMoney = GetPlayerMoney()
 	
@@ -196,81 +324,52 @@ function addon:PLAYER_MONEY(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 	--it's positive money so lets add it to our session and lifetime
 	if self.DiffMoney > 0 then
 		playerSession.money = (playerSession.money or 0) + self.DiffMoney
-		addon.player_LT.money = (addon.player_LT.money or 0) + self.DiffMoney
+		if IsRetail then
+			self:UpdateUsingAchievementStats("gold")
+		else
+			addon.player_LT.money = (addon.player_LT.money or 0) + self.DiffMoney
+		end
 		addon.player_LASS.sessionMoney = playerSession.money or 0
 	else
 		playerSession.spent = (playerSession.spent or 0) + self.DiffMoney
-		addon.player_LT.spent = (addon.player_LT.spent or 0) + self.DiffMoney
+		if IsRetail then
+			local oldGold = addon.player_LT.money or 0
+			self:UpdateUsingAchievementStats("gold")
+			addon.player_LT.spent = (addon.player_LT.spent or 0) + (addon.player_LT.money - oldGold)
+		else
+			addon.player_LT.spent = (addon.player_LT.spent or 0) + self.DiffMoney
+		end
+
 		addon.player_LASS.sessionSpent = playerSession.spent or 0
 	end
 	
 	addon:UpdateButtonText()
 
-	if auditorTag and auditorTag == "taxi" and UnitOnTaxi("player") then
-		--diff comes in as negative so make it positive for storing
-		playerSession.taxi = (playerSession.taxi or 0) + (self.DiffMoney * -1)
-		addon.player_LT.taxi = (addon.player_LT.taxi or 0) + (self.DiffMoney * -1)
+	--TAXI
+	if IsRetail and auditorTag == "taxi" then
+		local oldTaxi = addon.player_LT.taxi or 0
+		self:UpdateUsingAchievementStats("taxi")
+		playerSession.taxi = (addon.player_LT.taxi or 0) - oldTaxi --subtract old from new to get diff spent
 		auditorTag = nil
 		return
-	end
-
-	local checkMerchant = false
-	
-	if auditorTag and auditorTag == "merchant" then
-		checkMerchant = true
-	elseif MerchantFrame and MerchantFrame:IsVisible() then
-		--sometimes other addons fire Merchant_Show faster than we do and already perform actions like repairs
-		--This is a catch all to check if the merchant frame is even opened.
-		checkMerchant = true
-	end
-
-	if checkMerchant then
-		--if they are in repair mode and haven't clicked repair all
-		if InRepairMode() then
-			playerSession.repairs = (playerSession.repairs or 0) + (self.DiffMoney * -1)
-			addon.player_LT.repairs = (addon.player_LT.repairs or 0) + (self.DiffMoney * -1)
-			--so long as their in repair mode they shouldn't be selling anything so return
+	else
+		if auditorTag and auditorTag == "taxi" then
+			--diff comes in as negative so make it positive for storing
+			playerSession.taxi = (playerSession.taxi or 0) + (self.DiffMoney * -1)
+			auditorTag = nil
 			return
 		end
-		if addon.hasRepaired then
-			addon.hasRepaired = false
-
-			playerSession.repairs = (playerSession.repairs or 0) + addon.totalRepairCost
-			addon.player_LT.repairs = (addon.player_LT.repairs or 0) + addon.totalRepairCost
-			
-			local previousRepairCost = addon.totalRepairCost
-			addon.totalRepairCost = 0
-
-			--did we do only repairs?
-			if (previousRepairCost + self.DiffMoney) == 0 then
-				--looks like we only did repairs since the money spent versus cost is zero, don't do merchant stuff
-				return
-			end
-			
-			--NOTE:  This is primarily for folks who have addons that auto repair and freaking sell grays at the same time.
-			--we want to grab how much we actually got from vendoring not how much we got from vendoring minus the repair costs. 
-			--so lets add the repair costs back into the difference
-			self.DiffMoney = previousRepairCost + self.DiffMoney
-		end
-		
-		playerSession.merchant = (playerSession.merchant or 0) + self.DiffMoney
-		addon.player_LT.merchant = (addon.player_LT.merchant or 0) + self.DiffMoney
-		
-		return
 	end
 
-	--CATCHALL- the merchant auditorTag flag didn't set quick enough but repairs were done.  So lets calculate it
-	if addon.hasRepaired then
-		addon.hasRepaired = false
-		playerSession.repairs = (playerSession.repairs or 0) + addon.totalRepairCost
-		addon.player_LT.repairs = (addon.player_LT.repairs or 0) + addon.totalRepairCost
-		addon.totalRepairCost = 0
-	end
-		
 end
 
 function addon:TAXIMAP_OPENED()
 	auditorTag = "taxi"
+end
+
+function addon:TAXIMAP_CLOSED()
+	--force an update just in case
+	self:PLAYER_MONEY()
 end
 
 function addon:QUEST_ACCEPTED(event, questLogIndex, questID)
@@ -281,7 +380,12 @@ function addon:QUEST_REMOVED(event, questID)
 	if questHistory[questID] then
 		if not questHistory[questID].gotReward then
 			playerSession.quest = (playerSession.quest or 0) + questHistory[questID].money
-			addon.player_LT.quest = (addon.player_LT.quest or 0) + questHistory[questID].money
+			
+			if IsRetail then
+				self:UpdateUsingAchievementStats("quest")
+			else
+				addon.player_LT.quest = (addon.player_LT.quest or 0) + questHistory[questID].money
+			end
 		end
 		questHistory[questID] = nil
 	end
@@ -292,26 +396,98 @@ function addon:QUEST_TURNED_IN(event, questID, xpReward, moneyReward)
 		questHistory[questID].gotReward = true
 	end
 	playerSession.quest = (playerSession.quest or 0) + moneyReward
-	addon.player_LT.quest = (addon.player_LT.quest or 0) + moneyReward
+	
+	if IsRetail then
+		self:UpdateUsingAchievementStats("quest")
+	else
+		addon.player_LT.quest = (addon.player_LT.quest or 0) + moneyReward
+	end
 end
 
 function addon:CHAT_MSG_MONEY(event, msg)
 	local gold, silver, copper, money = ChatMoneyScan(msg) 
 	if money then
 		playerSession.loot = (playerSession.loot or 0) + money
-		addon.player_LT.loot = (addon.player_LT.loot or 0) + money
+		
+		if IsRetail then
+			self:UpdateUsingAchievementStats("loot")
+		else
+			addon.player_LT.loot = (addon.player_LT.loot or 0) + money
+		end
 	end
+end
+
+----------------------
+--      Merchant      --
+----------------------
+
+hooksecurefunc("RepairAllItems", function(useGuildRepair, arg2)
+	--we want to track OUR money not the guilds money for repairs
+	if useGuildRepair then
+		addon.usedGuildRepair = true
+	end
+end)
+
+local function startMerchantTransactions()
+	if addon.merchant_start then return end
+	addon.merchant_start = true
+	
+	addon.merchant_repairCost = updateRepairCost()
+	addon.merchant_playerGold = GetPlayerMoney()
+end
+
+local function endMerchantTransactions()
+	if not addon.merchant_start then return end
+	
+	local repairDiff = 0
+
+	--lets do the repairs first, make sure we didn't do a guild repair
+	if not addon.usedGuildRepair then
+		if addon.merchant_repairCost then
+			--the stored repair cost and the current one has changed, the player has repaired something.
+			repairDiff = (addon.merchant_repairCost or 0) - (updateRepairCost() or 0)
+			if repairDiff < 0 then repairDiff = repairDiff * -1 end --make sure it's a positive number
+			
+			playerSession.repairs = (playerSession.repairs or 0) + repairDiff
+			addon.player_LT.repairs = (addon.player_LT.repairs or 0) + repairDiff
+		end
+	end
+	
+	--get the player gold and subtract any money we spent on repairs to have a base to work with
+	local playerMerchantTotal = (addon.merchant_playerGold or 0) - (repairDiff or 0)
+	if playerMerchantTotal < 0 then playerMerchantTotal = playerMerchantTotal * -1 end --make sure it's a positive number to work with
+	
+    local tmpMoney = GetPlayerMoney()
+	local newDiff = 0
+	
+    newDiff = tmpMoney - playerMerchantTotal
+	
+	--now lets do any merchant stuff
+	playerSession.merchant = (playerSession.merchant or 0) + newDiff
+	addon.player_LT.merchant = (addon.player_LT.merchant or 0) + newDiff
+
+	addon.merchant_repairCost = nil
+	addon.merchant_playerGold = nil
+	addon.usedGuildRepair = nil
+	addon.merchant_start = nil
 end
 
 --these merchant functions can be slow depending on other addons
 function addon:MERCHANT_SHOW()
-	if not auditorTag or auditorTag ~= "merchant" then auditorTag = "merchant" end
-	updateRepairCost()
+	startMerchantTransactions()
 end
 
 function addon:MERCHANT_CLOSED()
-	if auditorTag and auditorTag == "merchant" then auditorTag = nil end
+	endMerchantTransactions()
 end
+
+--these two merchant hooks are really catch alls if the registered event ones fail
+MerchantFrame:HookScript("OnShow", function(self)
+	startMerchantTransactions()
+end)
+MerchantFrame:HookScript("OnHide", function(self)
+	endMerchantTransactions()
+end)
 
 ----------------------
 --      Utils      --
@@ -354,23 +530,6 @@ else
 		end
 	end)
 end
-
-hooksecurefunc("RepairAllItems", function(useGuildRepair, arg2)
-	updateRepairCost()
-	--we want to track OUR money not the guilds money for repairs
-	if not useGuildRepair and not arg2 then 
-		addon.hasRepaired = true
-	end
-end)
-
---these two merchant hooks are really catch alls if the registered event ones fail
-MerchantFrame:HookScript("OnShow", function(self)
-	if not auditorTag or auditorTag ~= "merchant" then auditorTag = "merchant" end
-	updateRepairCost()
-end)
-MerchantFrame:HookScript("OnHide", function(self)
-	if auditorTag and  auditorTag == "merchant" then auditorTag = nil end
-end)
 
 function xanGoldMine_SlashCommand(cmd)
 
