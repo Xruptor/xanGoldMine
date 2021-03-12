@@ -1,13 +1,13 @@
 #@retail@
-## Interface: 90001
+## Interface: 90005
 #@end-retail@
 #@non-retail@
-# ## Interface: 11305
+# ## Interface: 11306
 #@end-non-retail@
 ## Title: xanGoldMine
 ## Notes: Tracks gold progression on your characters.
 ## Author: Xruptor
-## Version: 1.7
+## Version: 1.8
 ## X-Curse-Project-ID: 304744
 ## X-WoWI-ID: 24842
 ## OptionalDeps: tekDebug

@@ -240,7 +240,6 @@ function addon:PLAYER_LOGIN()
 	self:RegisterEvent("QUEST_REMOVED")
 	self:RegisterEvent("QUEST_TURNED_IN")
 	self:RegisterEvent("CHAT_MSG_MONEY")
-	self:RegisterEvent("TAXIMAP_OPENED")
 	self:RegisterEvent("TAXIMAP_CLOSED")
 	
 	self:RegisterEvent("MERCHANT_SHOW")
@@ -346,31 +345,59 @@ function addon:PLAYER_MONEY()
 	addon:UpdateButtonText()
 
 	--TAXI
-	if IsRetail and auditorTag == "taxi" then
-		local oldTaxi = addon.player_LT.taxi or 0
-		self:UpdateUsingAchievementStats("taxi")
-		playerSession.taxi = (addon.player_LT.taxi or 0) - oldTaxi --subtract old from new to get diff spent
-		auditorTag = nil
-		return
-	else
-		if auditorTag and auditorTag == "taxi" then
+	if auditorTag and auditorTag == "taxi" then
+		if IsRetail then
+		
+			local oldTaxi = addon.player_LT.taxi or 0
+			self:UpdateUsingAchievementStats("taxi")
+			
+			local currTaxi = (addon.player_LT.taxi or 0) - oldTaxi --subtract old from new to get diff spent
+			playerSession.taxi = (playerSession.taxi or 0) + currTaxi --now add it to our session total
+			
+			auditorTag = nil
+			return
+		else
 			--diff comes in as negative so make it positive for storing
 			playerSession.taxi = (playerSession.taxi or 0) + (self.DiffMoney * -1)
 			auditorTag = nil
 			return
 		end
 	end
-
 end
 
-function addon:TAXIMAP_OPENED()
-	auditorTag = "taxi"
-end
+----------------------
+--      Taxi        --
+----------------------
+
+addon:SetScript("OnUpdate", function(self, elapsed)
+	if not self.checkTaxi then
+		if not self.OnUpdateCounter or self.OnUpdateCounter > 0 then self.OnUpdateCounter = 0 end
+		return
+	end 
+	
+	self.OnUpdateCounter = (self.OnUpdateCounter or 0) + elapsed
+	if self.OnUpdateCounter < 2 then return end --two seconds should suffice
+	
+	self.OnUpdateCounter = 0
+
+	if UnitOnTaxi("player") then
+		if not auditorTag or auditorTag ~= "taxi" then
+			auditorTag = "taxi"
+			self:PLAYER_MONEY()
+		end
+	end
+	
+	--disable this we don't want it running constantly if it fails the condition check
+	self.checkTaxi = false
+end)
 
 function addon:TAXIMAP_CLOSED()
-	--force an update just in case
-	self:PLAYER_MONEY()
+	self.checkTaxi = true
 end
+
+----------------------
+--      Quest       --
+----------------------
 
 function addon:QUEST_ACCEPTED(event, questLogIndex, questID)
 	DoQuestLogScan()
@@ -418,7 +445,7 @@ function addon:CHAT_MSG_MONEY(event, msg)
 end
 
 ----------------------
---      Merchant      --
+--      Merchant    --
 ----------------------
 
 hooksecurefunc("RepairAllItems", function(useGuildRepair, arg2)
