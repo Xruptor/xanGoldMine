@@ -7,12 +7,32 @@ addon = _G[ADDON_NAME]
 
 local L = LibStub("AceLocale-3.0"):GetLocale(ADDON_NAME)
 
-addon:SetScript("OnEvent", function(self, event, ...) if self[event] then return self[event](self, event, ...) end end)
-
 local debugf = tekDebug and tekDebug:GetFrame(ADDON_NAME)
 local function Debug(...)
     if debugf then debugf:AddMessage(string.join(", ", tostringall(...))) end
 end
+
+addon:RegisterEvent("ADDON_LOADED")
+addon:SetScript("OnEvent", function(self, event, ...)
+	if event == "ADDON_LOADED" or event == "PLAYER_LOGIN" then
+		if event == "ADDON_LOADED" then
+			local arg1 = ...
+			if arg1 and arg1 == ADDON_NAME then
+				self:UnregisterEvent("ADDON_LOADED")
+				self:RegisterEvent("PLAYER_LOGIN")
+			end
+			return
+		end
+		if IsLoggedIn() then
+			self:EnableAddon(event, ...)
+			self:UnregisterEvent("PLAYER_LOGIN")
+		end
+		return
+	end
+	if self[event] then
+		return self[event](self, event, ...)
+	end
+end)
 
 local IsRetail = WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
 
@@ -201,7 +221,7 @@ end
 --      Event Handlers      --
 ------------------------------
 
-function addon:PLAYER_LOGIN()
+function addon:EnableAddon()
 
 	if not XanGM_DB then XanGM_DB = {} end
 	if XanGM_DB.bgShown == nil then XanGM_DB.bgShown = true end
@@ -248,11 +268,10 @@ function addon:PLAYER_LOGIN()
 	SLASH_XANGOLDMINE1 = "/xgm";
 	SlashCmdList["XANGOLDMINE"] = xanGoldMine_SlashCommand;
 	
+	if addon.configFrame then addon.configFrame:EnableConfig() end
+	
 	local ver = GetAddOnMetadata(ADDON_NAME,"Version") or '1.0'
 	DEFAULT_CHAT_FRAME:AddMessage(string.format("|cFF99CC33%s|r [v|cFF20ff20%s|r] loaded:   /xgm", ADDON_NAME, ver or "1.0"))
-	
-	self:UnregisterEvent("PLAYER_LOGIN")
-	self.PLAYER_LOGIN = nil
 end
 
 function addon:UpdateUsingAchievementStats(specificID)
@@ -309,34 +328,35 @@ end
 function addon:PLAYER_MONEY()
 
     local tmpMoney = GetPlayerMoney()
+	local diffMoney = 0
 	
     if addon.player_DB.money then
-        self.DiffMoney = tmpMoney - addon.player_DB.money
+        diffMoney = tmpMoney - addon.player_DB.money
     else
-        self.DiffMoney = 0
+        diffMoney = 0
     end
 	addon.player_DB.money = tmpMoney
 	
-	playerSession.lastMoneyDiff = self.DiffMoney
-	playerSession.netProfit = (playerSession.netProfit or 0) + self.DiffMoney
+	playerSession.lastMoneyDiff = diffMoney
+	playerSession.netProfit = (playerSession.netProfit or 0) + diffMoney
 	
 	--it's positive money so lets add it to our session and lifetime
-	if self.DiffMoney > 0 then
-		playerSession.money = (playerSession.money or 0) + self.DiffMoney
+	if diffMoney > 0 then
+		playerSession.money = (playerSession.money or 0) + diffMoney
 		if IsRetail then
 			self:UpdateUsingAchievementStats("gold")
 		else
-			addon.player_LT.money = (addon.player_LT.money or 0) + self.DiffMoney
+			addon.player_LT.money = (addon.player_LT.money or 0) + diffMoney
 		end
 		addon.player_LASS.sessionMoney = playerSession.money or 0
 	else
-		playerSession.spent = (playerSession.spent or 0) + self.DiffMoney
+		playerSession.spent = (playerSession.spent or 0) + diffMoney
 		if IsRetail then
 			local oldGold = addon.player_LT.money or 0
 			self:UpdateUsingAchievementStats("gold")
 			addon.player_LT.spent = (addon.player_LT.spent or 0) + (addon.player_LT.money - oldGold)
 		else
-			addon.player_LT.spent = (addon.player_LT.spent or 0) + self.DiffMoney
+			addon.player_LT.spent = (addon.player_LT.spent or 0) + diffMoney
 		end
 
 		addon.player_LASS.sessionSpent = playerSession.spent or 0
@@ -358,7 +378,7 @@ function addon:PLAYER_MONEY()
 			return
 		else
 			--diff comes in as negative so make it positive for storing
-			playerSession.taxi = (playerSession.taxi or 0) + (self.DiffMoney * -1)
+			playerSession.taxi = (playerSession.taxi or 0) + (diffMoney * -1)
 			auditorTag = nil
 			return
 		end
@@ -680,7 +700,7 @@ function addon:CreateGoldFrame()
 		GameTooltip:AddDoubleLine(L.TooltipTotalSpent, playerSession.spent and GetMoneyString(playerSession.spent * -1, true) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
 		
 		if playerSession.netProfit then
-			if playerSession.netProfit > 0 then
+			if playerSession.netProfit >= 0 then
 				GameTooltip:AddDoubleLine(L.TooltipNetProfit, GetMoneyString(playerSession.netProfit, true), fontColor.r,fontColor.g,fontColor.b, 0,1,0)
 			else
 				GameTooltip:AddDoubleLine(L.TooltipNetProfit, GetMoneyString(playerSession.netProfit * -1, true), fontColor.r,fontColor.g,fontColor.b, 1,0,0) --red
@@ -690,7 +710,7 @@ function addon:CreateGoldFrame()
 		end
 		
 		if playerSession.lastMoneyDiff then
-			if playerSession.lastMoneyDiff > 0 then
+			if playerSession.lastMoneyDiff >= 0 then
 				GameTooltip:AddDoubleLine(L.TooltipLastTransaction, GetMoneyString(playerSession.lastMoneyDiff, true), fontColor.r,fontColor.g,fontColor.b, 1,1,1)
 			else
 				GameTooltip:AddDoubleLine(L.TooltipLastTransaction, GetMoneyString(playerSession.lastMoneyDiff * -1, true), fontColor.r,fontColor.g,fontColor.b, 1,0,0) --red
@@ -706,7 +726,7 @@ function addon:CreateGoldFrame()
 		GameTooltip:AddDoubleLine(L.TooltipRepairs, playerSession.repairs and GetMoneyString(playerSession.repairs, true) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
 		
 		if playerSession.merchant then
-			if playerSession.merchant > 0 then
+			if playerSession.merchant >= 0 then
 				GameTooltip:AddDoubleLine(L.TooltipMerchant, GetMoneyString(playerSession.merchant, true), fontColor.r,fontColor.g,fontColor.b, 1,1,1)
 			else
 				GameTooltip:AddDoubleLine(L.TooltipMerchant, GetMoneyString(playerSession.merchant * -1, true), fontColor.r,fontColor.g,fontColor.b, 1,0,0) --red
@@ -716,7 +736,7 @@ function addon:CreateGoldFrame()
 		end
 		
 
-		if playerSession.money and playerSession.money > 0 then
+		if playerSession.money and playerSession.money >= 0 then
 			local sessionTime = GetTime() - starttime
 			local goldPerSecond = ceil(playerSession.money / sessionTime)
 			local goldPerMinute = ceil(goldPerSecond * 60)
@@ -750,7 +770,7 @@ function addon:CreateGoldFrame()
 		GameTooltip:AddDoubleLine(L.TooltipRepairs, addon.player_LT.repairs and GetMoneyString(addon.player_LT.repairs, true) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
 		
 		if addon.player_LT.merchant then
-			if addon.player_LT.merchant > 0 then
+			if addon.player_LT.merchant >= 0 then
 				GameTooltip:AddDoubleLine(L.TooltipMerchant, GetMoneyString(addon.player_LT.merchant, true), fontColor.r,fontColor.g,fontColor.b, 1,1,1)
 			else
 				GameTooltip:AddDoubleLine(L.TooltipMerchant, GetMoneyString(addon.player_LT.merchant * -1, true), fontColor.r,fontColor.g,fontColor.b, 1,0,0) --red
@@ -883,5 +903,3 @@ function addon:GetTipAnchor(frame)
 	local vhalf = (y > UIParent:GetHeight()/2) and "TOP" or "BOTTOM"
 	return vhalf..hhalf, frame, (vhalf == "TOP" and "BOTTOM" or "TOP")..hhalf
 end
-
-if IsLoggedIn() then addon:PLAYER_LOGIN() else addon:RegisterEvent("PLAYER_LOGIN") end
