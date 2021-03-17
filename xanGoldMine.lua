@@ -275,7 +275,7 @@ function addon:EnableAddon()
 end
 
 function addon:UpdateUsingAchievementStats(specificID)
-	if not IsRetail then return end
+	if not IsRetail then return false end
 	
 	local statTotal, gold, silver, copper, totalNum
 	
@@ -286,6 +286,7 @@ function addon:UpdateUsingAchievementStats(specificID)
 			gold, silver, copper, totalNum = StripMoneyTextureString(statTotal)
 			if gold and totalNum and totalNum >= 0 and addon.player_LT.money ~= totalNum then
 				addon.player_LT.money = totalNum
+				return true
 			end
 		end
 	end
@@ -297,6 +298,7 @@ function addon:UpdateUsingAchievementStats(specificID)
 			gold, silver, copper, totalNum = StripMoneyTextureString(statTotal)
 			if gold and totalNum and totalNum >= 0 and addon.player_LT.quest ~= totalNum then
 				addon.player_LT.quest = totalNum
+				return true
 			end
 		end
 	end
@@ -308,6 +310,7 @@ function addon:UpdateUsingAchievementStats(specificID)
 			gold, silver, copper, totalNum = StripMoneyTextureString(statTotal)
 			if gold and totalNum and totalNum >= 0 and addon.player_LT.taxi ~= totalNum then
 				addon.player_LT.taxi = totalNum
+				return true
 			end
 		end
 	end
@@ -319,17 +322,19 @@ function addon:UpdateUsingAchievementStats(specificID)
 			gold, silver, copper, totalNum = StripMoneyTextureString(statTotal)
 			if gold and totalNum and totalNum >= 0 and addon.player_LT.loot ~= totalNum then
 				addon.player_LT.loot = totalNum
+				return true
 			end
 		end
 	end
 
+	return false
 end
 
 function addon:PLAYER_MONEY()
 
     local tmpMoney = GetPlayerMoney()
 	local diffMoney = 0
-	
+
     if addon.player_DB.money then
         diffMoney = tmpMoney - addon.player_DB.money
     else
@@ -343,17 +348,17 @@ function addon:PLAYER_MONEY()
 	--it's positive money so lets add it to our session and lifetime
 	if diffMoney > 0 then
 		playerSession.money = (playerSession.money or 0) + diffMoney
-		if IsRetail then
-			self:UpdateUsingAchievementStats("gold")
-		else
+		
+		if not self:UpdateUsingAchievementStats("gold") then
 			addon.player_LT.money = (addon.player_LT.money or 0) + diffMoney
 		end
 		addon.player_LASS.sessionMoney = playerSession.money or 0
 	else
 		playerSession.spent = (playerSession.spent or 0) + diffMoney
-		if IsRetail then
-			local oldGold = addon.player_LT.money or 0
-			self:UpdateUsingAchievementStats("gold")
+		
+		local oldGold = addon.player_LT.money or 0
+		
+		if self:UpdateUsingAchievementStats("gold") then
 			addon.player_LT.spent = (addon.player_LT.spent or 0) + (addon.player_LT.money - oldGold)
 		else
 			addon.player_LT.spent = (addon.player_LT.spent or 0) + diffMoney
@@ -366,22 +371,19 @@ function addon:PLAYER_MONEY()
 
 	--TAXI
 	if auditorTag and auditorTag == "taxi" then
-		if IsRetail then
 		
-			local oldTaxi = addon.player_LT.taxi or 0
-			self:UpdateUsingAchievementStats("taxi")
-			
+		local oldTaxi = addon.player_LT.taxi or 0
+		
+		if self:UpdateUsingAchievementStats("taxi") then
 			local currTaxi = (addon.player_LT.taxi or 0) - oldTaxi --subtract old from new to get diff spent
 			playerSession.taxi = (playerSession.taxi or 0) + currTaxi --now add it to our session total
-			
-			auditorTag = nil
-			return
 		else
 			--diff comes in as negative so make it positive for storing
 			playerSession.taxi = (playerSession.taxi or 0) + (diffMoney * -1)
-			auditorTag = nil
-			return
 		end
+		
+		auditorTag = nil
+		return
 	end
 end
 
@@ -428,9 +430,7 @@ function addon:QUEST_REMOVED(event, questID)
 		if not questHistory[questID].gotReward then
 			playerSession.quest = (playerSession.quest or 0) + questHistory[questID].money
 			
-			if IsRetail then
-				self:UpdateUsingAchievementStats("quest")
-			else
+			if not self:UpdateUsingAchievementStats("quest") then
 				addon.player_LT.quest = (addon.player_LT.quest or 0) + questHistory[questID].money
 			end
 		end
@@ -444,9 +444,7 @@ function addon:QUEST_TURNED_IN(event, questID, xpReward, moneyReward)
 	end
 	playerSession.quest = (playerSession.quest or 0) + moneyReward
 	
-	if IsRetail then
-		self:UpdateUsingAchievementStats("quest")
-	else
+	if not self:UpdateUsingAchievementStats("quest") then
 		addon.player_LT.quest = (addon.player_LT.quest or 0) + moneyReward
 	end
 end
@@ -456,9 +454,7 @@ function addon:CHAT_MSG_MONEY(event, msg)
 	if money then
 		playerSession.loot = (playerSession.loot or 0) + money
 		
-		if IsRetail then
-			self:UpdateUsingAchievementStats("loot")
-		else
+		if not self:UpdateUsingAchievementStats("loot") then
 			addon.player_LT.loot = (addon.player_LT.loot or 0) + money
 		end
 	end
