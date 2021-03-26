@@ -220,20 +220,14 @@ end
 ------------------------------
 --      Event Handlers      --
 ------------------------------
-
-function addon:EnableAddon()
-
-	if not XanGM_DB then XanGM_DB = {} end
-	if XanGM_DB.bgShown == nil then XanGM_DB.bgShown = true end
-	if XanGM_DB.scale == nil then XanGM_DB.scale = 1 end
-	if XanGM_DB.showTotalEarned == nil then XanGM_DB.showTotalEarned = true end
-	if XanGM_DB.fontColor == nil then XanGM_DB.fontColor = true end
-
-	self:CreateGoldFrame()
-	self:RestoreLayout(ADDON_NAME)
+function addon:CreatePlayerGoldDB(resetGold)
 	
 	local currentPlayer = UnitName("player")
 	local currentRealm = select(2, UnitFullName("player")) --get shortend realm name with no spaces and dashes
+
+	if resetGold then
+		XanGM_DB[currentRealm][currentPlayer] = nil
+	end
 
 	XanGM_DB[currentRealm] = XanGM_DB[currentRealm] or {}
 	XanGM_DB[currentRealm][currentPlayer] = XanGM_DB[currentRealm][currentPlayer] or {}
@@ -250,6 +244,21 @@ function addon:EnableAddon()
 	addon.player_LASS.totalSpent = addon.player_LASS.sessionSpent or 0
 	
 	self:UpdateUsingAchievementStats()
+end
+
+function addon:EnableAddon()
+
+	if not XanGM_DB then XanGM_DB = {} end
+	if XanGM_DB.bgShown == nil then XanGM_DB.bgShown = true end
+	if XanGM_DB.scale == nil then XanGM_DB.scale = 1 end
+	if XanGM_DB.showTotalEarned == nil then XanGM_DB.showTotalEarned = true end
+	if XanGM_DB.fontColor == nil then XanGM_DB.fontColor = true end
+	if XanGM_DB.useAchStatistics == nil then XanGM_DB.useAchStatistics = true end
+	
+	self:CreateGoldFrame()
+	self:RestoreLayout(ADDON_NAME)
+	
+	self:CreatePlayerGoldDB()
 	
 	DoQuestLogScan()
 	
@@ -276,8 +285,10 @@ end
 
 function addon:UpdateUsingAchievementStats(specificID)
 	if not IsRetail then return false end
+	if not XanGM_DB.useAchStatistics then return false end
 	
 	local statTotal, gold, silver, copper, totalNum
+	local passChk = false
 	
 	if not specificID or specificID == "gold" then
 		--total gold aquired
@@ -286,7 +297,7 @@ function addon:UpdateUsingAchievementStats(specificID)
 			gold, silver, copper, totalNum = StripMoneyTextureString(statTotal)
 			if gold and totalNum and totalNum >= 0 and addon.player_LT.money ~= totalNum then
 				addon.player_LT.money = totalNum
-				return true
+				passChk = true
 			end
 		end
 	end
@@ -298,7 +309,7 @@ function addon:UpdateUsingAchievementStats(specificID)
 			gold, silver, copper, totalNum = StripMoneyTextureString(statTotal)
 			if gold and totalNum and totalNum >= 0 and addon.player_LT.quest ~= totalNum then
 				addon.player_LT.quest = totalNum
-				return true
+				passChk = true
 			end
 		end
 	end
@@ -310,7 +321,7 @@ function addon:UpdateUsingAchievementStats(specificID)
 			gold, silver, copper, totalNum = StripMoneyTextureString(statTotal)
 			if gold and totalNum and totalNum >= 0 and addon.player_LT.taxi ~= totalNum then
 				addon.player_LT.taxi = totalNum
-				return true
+				passChk = true
 			end
 		end
 	end
@@ -322,12 +333,12 @@ function addon:UpdateUsingAchievementStats(specificID)
 			gold, silver, copper, totalNum = StripMoneyTextureString(statTotal)
 			if gold and totalNum and totalNum >= 0 and addon.player_LT.loot ~= totalNum then
 				addon.player_LT.loot = totalNum
-				return true
+				passChk = true
 			end
 		end
 	end
 
-	return false
+	return passChk
 end
 
 function addon:PLAYER_MONEY()
@@ -585,6 +596,13 @@ function xanGoldMine_SlashCommand(cmd)
 		elseif c and c:lower() == L.SlashReset then
 			addon.aboutPanel.btnReset.func()
 			return true
+		elseif c and c:lower() == L.SlashResetGold then
+			addon:CreatePlayerGoldDB(true)
+			DEFAULT_CHAT_FRAME:AddMessage(L.SlashResetGoldAlert)
+			return true
+		elseif c and c:lower() == L.SlashAchLifetimeTotals then
+			addon.aboutPanel.btnAchLifetimeTotals.func()
+			return true
 		elseif c and c:lower() == L.SlashTotalEarned then
 			addon.aboutPanel.btnTotalEarned.func(true)
 			return true
@@ -610,6 +628,8 @@ function xanGoldMine_SlashCommand(cmd)
 	DEFAULT_CHAT_FRAME:AddMessage("/xgm "..L.SlashScale.." # - "..L.SlashScaleInfo)
 	DEFAULT_CHAT_FRAME:AddMessage("/xgm "..L.SlashTotalEarned.." - "..L.SlashTotalEarnedInfo)
 	DEFAULT_CHAT_FRAME:AddMessage("/xgm "..L.SlashFontColor.." - "..L.SlashFontColorInfo)
+	DEFAULT_CHAT_FRAME:AddMessage("/xgm "..L.SlashResetGold.." - "..L.SlashResetGoldInfo)
+	DEFAULT_CHAT_FRAME:AddMessage("/xgm "..L.SlashAchLifetimeTotals.." - "..L.SlashAchLifetimeTotalsInfo)
 end
 
 

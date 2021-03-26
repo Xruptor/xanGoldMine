@@ -12,6 +12,10 @@ L.SlashReset = "reset"
 L.SlashResetInfo = "Reset frame position."
 L.SlashResetAlert = "xanGoldMine: Frame position has been reset!"
 
+L.SlashResetGold = "resetgold"
+L.SlashResetGoldInfo = "Reset database Gold values."
+L.SlashResetGoldAlert = "xanGoldMine: Database gold values have been reset!"
+
 L.SlashScale = "scale"
 L.SlashScaleSet = "xanGoldMine: scale has been set to [|cFF20ff20%s|r]"
 L.SlashScaleSetInvalid = "xanGoldMine: scale invalid or number cannot be greater than 2"
@@ -29,6 +33,12 @@ L.SlashFontColorOn = "xanGoldMine: Tooltip font color is now [|cFF99CC33YELLOW|r
 L.SlashFontColorOff = "xanGoldMine: Tooltip font color is now [|cFF99CC33WHITE|r]"
 L.SlashFontColorInfo = "Toggle between [|cFF99CC33WHITE|r] instead of [|cFF99CC33YELLOW|r] tooltip color."
 L.SlashFontColorChkBtn = "Show [|cFF99CC33YELLOW|r] instead of [|cFF99CC33WHITE|r] tooltip color."
+
+L.SlashAchLifetimeTotals = "achtotals"
+L.SlashAchLifetimeTotalsOn = "xanGoldMine: Achievements Statistics Lifetime Totals is now [|cFF99CC33ON|r]"
+L.SlashAchLifetimeTotalsOff = "xanGoldMine: Achievements Statistics Lifetime Totals is now [|cFF99CC33OFF|r]"
+L.SlashAchLifetimeTotalsInfo = "Toggle using character Achievements Statistics Lifetime Totals [|cFF99CC33ON/OFF|r]."
+L.SlashAchLifetimeTotalsChkBtn = "Use character Achievements Statistics Lifetime totals."
 
 L.Waiting = "Waiting..."
 

@@ -147,7 +147,7 @@ function configFrame:EnableConfig()
 	btnBG:SetScript("OnShow", function() btnBG:SetChecked(XanGM_DB.bgShown) end)
 	btnBG.func = function(slashSwitch)
 		local value = XanGM_DB.bgShown
-		if not slashSwitch then value = btnBG:GetChecked() end
+		if not slashSwitch then value = XanGM_DB.bgShown end
 
 		if value then
 			XanGM_DB.bgShown = false
@@ -206,7 +206,7 @@ function configFrame:EnableConfig()
 	btnTotalEarned:SetScript("OnShow", function() btnTotalEarned:SetChecked(XanGM_DB.showTotalEarned) end)
 	btnTotalEarned.func = function(slashSwitch)
 		local value = XanGM_DB.showTotalEarned
-		if not slashSwitch then value = btnTotalEarned:GetChecked() end
+		if not slashSwitch then value = XanGM_DB.showTotalEarned end
 
 		if value then
 			XanGM_DB.showTotalEarned = false
@@ -227,7 +227,7 @@ function configFrame:EnableConfig()
 	btnFontColor:SetScript("OnShow", function() btnFontColor:SetChecked(XanGM_DB.fontColor) end)
 	btnFontColor.func = function(slashSwitch)
 		local value = XanGM_DB.fontColor
-		if not slashSwitch then value = btnFontColor:GetChecked() end
+		if not slashSwitch then value = XanGM_DB.fontColor end
 
 		if value then
 			XanGM_DB.fontColor = false
@@ -242,4 +242,24 @@ function configFrame:EnableConfig()
 	addConfigEntry(btnFontColor, 0, -20)
 	addon.aboutPanel.btnFontColor = btnFontColor
 
+	local btnAchLifetimeTotals = createCheckbutton(addon.aboutPanel, L.SlashAchLifetimeTotalsChkBtn)
+	btnAchLifetimeTotals:SetScript("OnShow", function() btnAchLifetimeTotals:SetChecked(XanGM_DB.useAchStatistics) end)
+	btnAchLifetimeTotals.func = function(slashSwitch)
+		local value = XanGM_DB.useAchStatistics
+		if not slashSwitch then value = XanGM_DB.useAchStatistics end
+
+		if value then
+			XanGM_DB.useAchStatistics = false
+			DEFAULT_CHAT_FRAME:AddMessage(L.SlashAchLifetimeTotalsOff)
+		else
+			XanGM_DB.useAchStatistics = true
+			addon:UpdateUsingAchievementStats()
+			DEFAULT_CHAT_FRAME:AddMessage(L.SlashAchLifetimeTotalsOn)
+		end
+	end
+	btnAchLifetimeTotals:SetScript("OnClick", btnAchLifetimeTotals.func)
+	
+	addConfigEntry(btnAchLifetimeTotals, 0, -20)
+	addon.aboutPanel.btnAchLifetimeTotals = btnAchLifetimeTotals
+	
 end
