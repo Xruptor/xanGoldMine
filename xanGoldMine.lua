@@ -242,6 +242,7 @@ function addon:CreatePlayerGoldDB(resetGold)
 	addon.player_LASS = addon.player_DB.lastSession
 	addon.player_LASS.totalMoney = addon.player_LASS.sessionMoney or 0
 	addon.player_LASS.totalSpent = addon.player_LASS.sessionSpent or 0
+	addon.player_LASS.totalNetProfit = addon.player_LASS.sessionNetProfit or 0
 	
 	self:UpdateUsingAchievementStats()
 end
@@ -346,38 +347,35 @@ function addon:PLAYER_MONEY()
     local tmpMoney = GetPlayerMoney()
 	local diffMoney = 0
 
-    if addon.player_DB.money then
-        diffMoney = tmpMoney - addon.player_DB.money
-    else
-        diffMoney = 0
-    end
+	diffMoney = tmpMoney - (addon.player_DB.money or 0)
 	addon.player_DB.money = tmpMoney
 	
+	if addon.merchant_start then
+		addon.merchant_trackGold = (addon.merchant_trackGold or 0) + diffMoney
+	end
+
 	playerSession.lastMoneyDiff = diffMoney
 	playerSession.netProfit = (playerSession.netProfit or 0) + diffMoney
+	addon.player_LASS.sessionNetProfit = playerSession.netProfit or 0
+	
+	--force update of our achievement money tracker if it's enabled
+	local doChk = self:UpdateUsingAchievementStats("gold")
 	
 	--it's positive money so lets add it to our session and lifetime
 	if diffMoney > 0 then
 		playerSession.money = (playerSession.money or 0) + diffMoney
-		
-		if not self:UpdateUsingAchievementStats("gold") then
+		if not doChk then
+			--only store these values IF we aren't using the achievement money tracker
 			addon.player_LT.money = (addon.player_LT.money or 0) + diffMoney
 		end
 		addon.player_LASS.sessionMoney = playerSession.money or 0
 	else
+		--add to our total spent.  Value will change depending if we are in net profit or loss
 		playerSession.spent = (playerSession.spent or 0) + diffMoney
-		
-		local oldGold = addon.player_LT.money or 0
-		
-		if self:UpdateUsingAchievementStats("gold") then
-			addon.player_LT.spent = (addon.player_LT.spent or 0) + (addon.player_LT.money - oldGold)
-		else
-			addon.player_LT.spent = (addon.player_LT.spent or 0) + diffMoney
-		end
-
+		addon.player_LT.spent = (addon.player_LT.spent or 0) + diffMoney
 		addon.player_LASS.sessionSpent = playerSession.spent or 0
 	end
-	
+
 	addon:UpdateButtonText()
 
 	--TAXI
@@ -390,7 +388,8 @@ function addon:PLAYER_MONEY()
 			playerSession.taxi = (playerSession.taxi or 0) + currTaxi --now add it to our session total
 		else
 			--diff comes in as negative so make it positive for storing
-			playerSession.taxi = (playerSession.taxi or 0) + (diffMoney * -1)
+			if diffMoney < 0 then diffMoney = diffMoney * -1 end
+			playerSession.taxi = (playerSession.taxi or 0) + diffMoney
 		end
 		
 		auditorTag = nil
@@ -488,6 +487,7 @@ local function startMerchantTransactions()
 	
 	addon.merchant_repairCost = updateRepairCost()
 	addon.merchant_playerGold = GetPlayerMoney()
+	addon.merchant_trackGold = 0
 end
 
 local function endMerchantTransactions()
@@ -506,22 +506,17 @@ local function endMerchantTransactions()
 			addon.player_LT.repairs = (addon.player_LT.repairs or 0) + repairDiff
 		end
 	end
-	
+
 	--get the player gold and subtract any money we spent on repairs to have a base to work with
-	local playerMerchantTotal = (addon.merchant_playerGold or 0) - (repairDiff or 0)
-	if playerMerchantTotal < 0 then playerMerchantTotal = playerMerchantTotal * -1 end --make sure it's a positive number to work with
-	
-    local tmpMoney = GetPlayerMoney()
-	local newDiff = 0
-	
-    newDiff = tmpMoney - playerMerchantTotal
-	
-	--now lets do any merchant stuff
+	local newDiff = (addon.merchant_trackGold or 0) - (repairDiff or 0)
+
+	--now lets store our merchant values
 	playerSession.merchant = (playerSession.merchant or 0) + newDiff
 	addon.player_LT.merchant = (addon.player_LT.merchant or 0) + newDiff
 
 	addon.merchant_repairCost = nil
 	addon.merchant_playerGold = nil
+	addon.merchant_trackGold = 0
 	addon.usedGuildRepair = nil
 	addon.merchant_start = nil
 end
@@ -632,6 +627,11 @@ function xanGoldMine_SlashCommand(cmd)
 	DEFAULT_CHAT_FRAME:AddMessage("/xgm "..L.SlashAchLifetimeTotals.." - "..L.SlashAchLifetimeTotalsInfo)
 end
 
+local function DoMoneyIcon(money)
+	if not money or not tonumber(money) then return false end
+	if money < 0 then money = money * -1 end
+	return GetMoneyString(money, true)
+end
 
 function addon:CreateGoldFrame()
 
@@ -708,18 +708,18 @@ function addon:CreateGoldFrame()
 		GameTooltip:AddLine(L.TooltipDragInfo, 64/255, 224/255, 208/255)
 		GameTooltip:AddLine(" ")
 		
-		GameTooltip:AddDoubleLine(L.TooltipTotalGold, addon.player_DB.money and GetMoneyString(addon.player_DB.money, true) or L.Waiting, 129/255, 209/255, 92/255, 1,1,1)
+		GameTooltip:AddDoubleLine(L.TooltipTotalGold, addon.player_DB.money and DoMoneyIcon(addon.player_DB.money) or L.Waiting, 129/255, 209/255, 92/255, 1,1,1)
 		
 		GameTooltip:AddLine(" ")
 		GameTooltip:AddLine(L.TooltipSession, 64/255, 224/255, 208/255)
-		GameTooltip:AddDoubleLine(L.TooltipTotalEarned, playerSession.money and GetMoneyString(playerSession.money, true) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
-		GameTooltip:AddDoubleLine(L.TooltipTotalSpent, playerSession.spent and GetMoneyString(playerSession.spent * -1, true) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+		GameTooltip:AddDoubleLine(L.TooltipTotalEarned, playerSession.money and DoMoneyIcon(playerSession.money) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+		GameTooltip:AddDoubleLine(L.TooltipTotalSpent, playerSession.spent and DoMoneyIcon(playerSession.spent) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
 		
 		if playerSession.netProfit then
 			if playerSession.netProfit >= 0 then
-				GameTooltip:AddDoubleLine(L.TooltipNetProfit, GetMoneyString(playerSession.netProfit, true), fontColor.r,fontColor.g,fontColor.b, 0,1,0)
+				GameTooltip:AddDoubleLine(L.TooltipNetProfit, DoMoneyIcon(playerSession.netProfit), fontColor.r,fontColor.g,fontColor.b, 0,1,0)
 			else
-				GameTooltip:AddDoubleLine(L.TooltipNetProfit, GetMoneyString(playerSession.netProfit * -1, true), fontColor.r,fontColor.g,fontColor.b, 1,0,0) --red
+				GameTooltip:AddDoubleLine(L.TooltipNetProfit, DoMoneyIcon(playerSession.netProfit), fontColor.r,fontColor.g,fontColor.b, 1,0,0) --red
 			end
 		else
 			GameTooltip:AddDoubleLine(L.TooltipNetProfit, L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
@@ -727,25 +727,25 @@ function addon:CreateGoldFrame()
 		
 		if playerSession.lastMoneyDiff then
 			if playerSession.lastMoneyDiff >= 0 then
-				GameTooltip:AddDoubleLine(L.TooltipLastTransaction, GetMoneyString(playerSession.lastMoneyDiff, true), fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+				GameTooltip:AddDoubleLine(L.TooltipLastTransaction, DoMoneyIcon(playerSession.lastMoneyDiff), fontColor.r,fontColor.g,fontColor.b, 1,1,1)
 			else
-				GameTooltip:AddDoubleLine(L.TooltipLastTransaction, GetMoneyString(playerSession.lastMoneyDiff * -1, true), fontColor.r,fontColor.g,fontColor.b, 1,0,0) --red
+				GameTooltip:AddDoubleLine(L.TooltipLastTransaction, DoMoneyIcon(playerSession.lastMoneyDiff), fontColor.r,fontColor.g,fontColor.b, 1,0,0) --red
 			end
 		else
 			GameTooltip:AddDoubleLine(L.TooltipLastTransaction, L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
 		end
 		
 		GameTooltip:AddLine(" ")
-		GameTooltip:AddDoubleLine(L.TooltipQuest, playerSession.quest and GetMoneyString(playerSession.quest, true) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
-		GameTooltip:AddDoubleLine(L.TooltipTaxi, playerSession.taxi and GetMoneyString(playerSession.taxi, true) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
-		GameTooltip:AddDoubleLine(L.TooltipLoot, playerSession.loot and GetMoneyString(playerSession.loot, true) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
-		GameTooltip:AddDoubleLine(L.TooltipRepairs, playerSession.repairs and GetMoneyString(playerSession.repairs, true) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+		GameTooltip:AddDoubleLine(L.TooltipQuest, playerSession.quest and DoMoneyIcon(playerSession.quest) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+		GameTooltip:AddDoubleLine(L.TooltipTaxi, playerSession.taxi and DoMoneyIcon(playerSession.taxi) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+		GameTooltip:AddDoubleLine(L.TooltipLoot, playerSession.loot and DoMoneyIcon(playerSession.loot) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+		GameTooltip:AddDoubleLine(L.TooltipRepairs, playerSession.repairs and DoMoneyIcon(playerSession.repairs) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
 		
 		if playerSession.merchant then
 			if playerSession.merchant >= 0 then
-				GameTooltip:AddDoubleLine(L.TooltipMerchant, GetMoneyString(playerSession.merchant, true), fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+				GameTooltip:AddDoubleLine(L.TooltipMerchant, DoMoneyIcon(playerSession.merchant), fontColor.r,fontColor.g,fontColor.b, 1,1,1)
 			else
-				GameTooltip:AddDoubleLine(L.TooltipMerchant, GetMoneyString(playerSession.merchant * -1, true), fontColor.r,fontColor.g,fontColor.b, 1,0,0) --red
+				GameTooltip:AddDoubleLine(L.TooltipMerchant, DoMoneyIcon(playerSession.merchant), fontColor.r,fontColor.g,fontColor.b, 1,0,0) --red
 			end
 		else
 			GameTooltip:AddDoubleLine(L.TooltipMerchant, L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
@@ -759,9 +759,9 @@ function addon:CreateGoldFrame()
 			local goldPerHour = ceil(goldPerSecond * 3600)
 			
 			GameTooltip:AddLine(" ")
-			GameTooltip:AddDoubleLine(L.TooltipGoldPerSec, GetMoneyString(goldPerSecond, true), fontColor.r,fontColor.g,fontColor.b, 1,1,1)
-			GameTooltip:AddDoubleLine(L.TooltipGoldPerMinute, GetMoneyString(goldPerMinute, true), fontColor.r,fontColor.g,fontColor.b, 1,1,1)
-			GameTooltip:AddDoubleLine(L.TooltipGoldPerHour, GetMoneyString(goldPerHour, true), fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+			GameTooltip:AddDoubleLine(L.TooltipGoldPerSec, DoMoneyIcon(goldPerSecond), fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+			GameTooltip:AddDoubleLine(L.TooltipGoldPerMinute, DoMoneyIcon(goldPerMinute), fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+			GameTooltip:AddDoubleLine(L.TooltipGoldPerHour, DoMoneyIcon(goldPerHour), fontColor.r,fontColor.g,fontColor.b, 1,1,1)
 		else
 			GameTooltip:AddLine(" ")
 			GameTooltip:AddDoubleLine(L.TooltipGoldPerSec, L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
@@ -772,24 +772,44 @@ function addon:CreateGoldFrame()
 		GameTooltip:AddLine(" ")
 		GameTooltip:AddLine(L.TooltipLastSession, 64/255, 224/255, 208/255)
 		
-		GameTooltip:AddDoubleLine(L.TooltipTotalEarned, addon.player_LASS.totalMoney and GetMoneyString(addon.player_LASS.totalMoney, true) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
-		GameTooltip:AddDoubleLine(L.TooltipTotalSpent, addon.player_LASS.totalSpent and GetMoneyString(addon.player_LASS.totalSpent * -1, true) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+		GameTooltip:AddDoubleLine(L.TooltipTotalEarned, addon.player_LASS.totalMoney and DoMoneyIcon(addon.player_LASS.totalMoney) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+		GameTooltip:AddDoubleLine(L.TooltipTotalSpent, addon.player_LASS.totalSpent and DoMoneyIcon(addon.player_LASS.totalSpent) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+		if addon.player_LASS.totalNetProfit then
+			if addon.player_LASS.totalNetProfit >= 0 then
+				GameTooltip:AddDoubleLine(L.TooltipNetProfit, DoMoneyIcon(addon.player_LASS.totalNetProfit), fontColor.r,fontColor.g,fontColor.b, 0,1,0)
+			else
+				GameTooltip:AddDoubleLine(L.TooltipNetProfit, DoMoneyIcon(addon.player_LASS.totalNetProfit), fontColor.r,fontColor.g,fontColor.b, 1,0,0) --red
+			end
+		else
+			GameTooltip:AddDoubleLine(L.TooltipNetProfit, L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+		end
 		
 		GameTooltip:AddLine(" ")
 		GameTooltip:AddLine(L.TooltipLifetime, 64/255, 224/255, 208/255)
-		GameTooltip:AddDoubleLine(L.TooltipTotalEarned, addon.player_LT.money and GetMoneyString(addon.player_LT.money, true) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
-		GameTooltip:AddDoubleLine(L.TooltipTotalSpent, addon.player_LT.spent and GetMoneyString(addon.player_LT.spent * -1, true) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+		GameTooltip:AddDoubleLine(L.TooltipTotalEarned, addon.player_LT.money and DoMoneyIcon(addon.player_LT.money) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+		GameTooltip:AddDoubleLine(L.TooltipTotalSpent, addon.player_LT.spent and DoMoneyIcon(addon.player_LT.spent) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+		if addon.player_LT.money and addon.player_LT.spent then
+			local ltDiff = (addon.player_LT.money or 0) - (addon.player_LT.spent or 0)
+			if ltDiff >= 0 then
+				GameTooltip:AddDoubleLine(L.TooltipDiff, DoMoneyIcon(ltDiff), fontColor.r,fontColor.g,fontColor.b, 0,1,0)
+			else
+				GameTooltip:AddDoubleLine(L.TooltipDiff, DoMoneyIcon(ltDiff), fontColor.r,fontColor.g,fontColor.b, 1,0,0) --red
+			end
+		else
+			GameTooltip:AddDoubleLine(L.TooltipDiff, L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+		end
+		
 		GameTooltip:AddLine(" ")
-		GameTooltip:AddDoubleLine(L.TooltipQuest, addon.player_LT.quest and GetMoneyString(addon.player_LT.quest, true) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
-		GameTooltip:AddDoubleLine(L.TooltipTaxi, addon.player_LT.taxi and GetMoneyString(addon.player_LT.taxi, true) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
-		GameTooltip:AddDoubleLine(L.TooltipLoot, addon.player_LT.loot and GetMoneyString(addon.player_LT.loot, true) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
-		GameTooltip:AddDoubleLine(L.TooltipRepairs, addon.player_LT.repairs and GetMoneyString(addon.player_LT.repairs, true) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+		GameTooltip:AddDoubleLine(L.TooltipQuest, addon.player_LT.quest and DoMoneyIcon(addon.player_LT.quest) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+		GameTooltip:AddDoubleLine(L.TooltipTaxi, addon.player_LT.taxi and DoMoneyIcon(addon.player_LT.taxi) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+		GameTooltip:AddDoubleLine(L.TooltipLoot, addon.player_LT.loot and DoMoneyIcon(addon.player_LT.loot) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+		GameTooltip:AddDoubleLine(L.TooltipRepairs, addon.player_LT.repairs and DoMoneyIcon(addon.player_LT.repairs) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
 		
 		if addon.player_LT.merchant then
 			if addon.player_LT.merchant >= 0 then
-				GameTooltip:AddDoubleLine(L.TooltipMerchant, GetMoneyString(addon.player_LT.merchant, true), fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+				GameTooltip:AddDoubleLine(L.TooltipMerchant, DoMoneyIcon(addon.player_LT.merchant), fontColor.r,fontColor.g,fontColor.b, 1,1,1)
 			else
-				GameTooltip:AddDoubleLine(L.TooltipMerchant, GetMoneyString(addon.player_LT.merchant * -1, true), fontColor.r,fontColor.g,fontColor.b, 1,0,0) --red
+				GameTooltip:AddDoubleLine(L.TooltipMerchant, DoMoneyIcon(addon.player_LT.merchant), fontColor.r,fontColor.g,fontColor.b, 1,0,0) --red
 			end
 		else
 			GameTooltip:AddDoubleLine(L.TooltipMerchant, L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
