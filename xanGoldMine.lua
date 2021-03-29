@@ -61,20 +61,20 @@ local STATID_TRAVEL = 1146
 function GetStatisticByID(categoryID, statID)
 	if not IsRetail then return nil end
 	
-	for _, cID in pairs(GetStatisticsCategoryList()) do
-		if cID and cID == categoryID then
-			local Title, ParentCategoryId, Something = GetCategoryInfo(cID)
-		
-			local statisticCount = GetCategoryNumAchievements(cID)
+	--for _, cID in pairs(GetStatisticsCategoryList()) do
+	--	if cID and cID == categoryID then
+			local Title, ParentCategoryId, Something = GetCategoryInfo(categoryID)
+			local statisticCount = GetCategoryNumAchievements(categoryID)
+			
 			for i = 1, statisticCount do
-				local idNum, Name, Points, Completed, Month, Day, Year, Description, Flags, Image, RewardText = GetAchievementInfo(cID, i)
-				--Debug(cID, idNum, Name, Points, Completed, Month, Day, Year, Description, Flags, Image, RewardText)
+				local idNum, Name, Points, Completed, Month, Day, Year, Description, Flags, Image, RewardText = GetAchievementInfo(categoryID, i)
+				--Debug(categoryID, idNum, Name, Points, Completed, Month, Day, Year, Description, Flags, Image, RewardText)
 				if idNum == statID then
 					return GetStatistic(idNum)
 				end
 			end
-		end
-	end
+	--	end
+	--end
 	return nil
 end
 
