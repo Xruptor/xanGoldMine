@@ -38,7 +38,7 @@ L.SlashAchLifetimeTotals = "achtotals"
 L.SlashAchLifetimeTotalsOn = "xanGoldMine: Achievements Statistics Lifetime Totals is now [|cFF99CC33ON|r]"
 L.SlashAchLifetimeTotalsOff = "xanGoldMine: Achievements Statistics Lifetime Totals is now [|cFF99CC33OFF|r]"
 L.SlashAchLifetimeTotalsInfo = "Toggle using character Achievements Statistics Lifetime Totals [|cFF99CC33ON/OFF|r]."
-L.SlashAchLifetimeTotalsChkBtn = "Use character Achievements Statistics Lifetime totals."
+L.SlashAchLifetimeTotalsChkBtn = "Use Achievements -> Statistics -> Character -> Wealth -> Lifetime totals."
 
 L.Waiting = "Waiting..."
 

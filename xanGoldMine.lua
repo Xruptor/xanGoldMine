@@ -231,18 +231,18 @@ function addon:CreatePlayerGoldDB(resetGold)
 
 	XanGM_DB[currentRealm] = XanGM_DB[currentRealm] or {}
 	XanGM_DB[currentRealm][currentPlayer] = XanGM_DB[currentRealm][currentPlayer] or {}
-	addon.player_DB = XanGM_DB[currentRealm][currentPlayer]
-	if not addon.player_DB.money then addon.player_DB.money = GetPlayerMoney() end
+	self.player_DB = XanGM_DB[currentRealm][currentPlayer]
+	if not self.player_DB.money then self.player_DB.money = GetPlayerMoney() end
 	
-	if not addon.player_DB.lifetime then addon.player_DB.lifetime = {} end
-	addon.player_LT = addon.player_DB.lifetime
-	if not addon.player_LT.money then addon.player_LT.money = GetPlayerMoney() end
+	if not self.player_DB.lifetime then self.player_DB.lifetime = {} end
+	self.player_LT = self.player_DB.lifetime
+	if not self.player_LT.money then self.player_LT.money = GetPlayerMoney() end
 	
-	if not addon.player_DB.lastSession then addon.player_DB.lastSession = {} end
-	addon.player_LASS = addon.player_DB.lastSession
-	addon.player_LASS.totalMoney = addon.player_LASS.sessionMoney or 0
-	addon.player_LASS.totalSpent = addon.player_LASS.sessionSpent or 0
-	addon.player_LASS.totalNetProfit = addon.player_LASS.sessionNetProfit or 0
+	if not self.player_DB.lastSession then self.player_DB.lastSession = {} end
+	self.player_LASS = self.player_DB.lastSession
+	self.player_LASS.totalMoney = self.player_LASS.sessionMoney or 0
+	self.player_LASS.totalSpent = self.player_LASS.sessionSpent or 0
+	self.player_LASS.totalNetProfit = self.player_LASS.sessionNetProfit or 0
 	
 	self:UpdateUsingAchievementStats()
 end
@@ -278,7 +278,7 @@ function addon:EnableAddon()
 	SLASH_XANGOLDMINE1 = "/xgm";
 	SlashCmdList["XANGOLDMINE"] = xanGoldMine_SlashCommand;
 	
-	if addon.configFrame then addon.configFrame:EnableConfig() end
+	if self.configFrame then self.configFrame:EnableConfig() end
 	
 	local ver = GetAddOnMetadata(ADDON_NAME,"Version") or '1.0'
 	DEFAULT_CHAT_FRAME:AddMessage(string.format("|cFF99CC33%s|r [v|cFF20ff20%s|r] loaded:   /xgm", ADDON_NAME, ver or "1.0"))
@@ -296,8 +296,8 @@ function addon:UpdateUsingAchievementStats(specificID)
 		statTotal = GetStatisticByID(CATEGORYID_WEALTH, STATID_GOLD_AQUIRED)
 		if statTotal then
 			gold, silver, copper, totalNum = StripMoneyTextureString(statTotal)
-			if gold and totalNum and totalNum >= 0 and addon.player_LT.money ~= totalNum then
-				addon.player_LT.money = totalNum
+			if gold and totalNum and totalNum >= 0 and self.player_LT.money ~= totalNum then
+				self.player_LT.money = totalNum
 				passChk = true
 			end
 		end
@@ -308,8 +308,8 @@ function addon:UpdateUsingAchievementStats(specificID)
 		statTotal = GetStatisticByID(CATEGORYID_WEALTH, STATID_QUEST_REWARDS)
 		if statTotal then
 			gold, silver, copper, totalNum = StripMoneyTextureString(statTotal)
-			if gold and totalNum and totalNum >= 0 and addon.player_LT.quest ~= totalNum then
-				addon.player_LT.quest = totalNum
+			if gold and totalNum and totalNum >= 0 and self.player_LT.quest ~= totalNum then
+				self.player_LT.quest = totalNum
 				passChk = true
 			end
 		end
@@ -320,8 +320,8 @@ function addon:UpdateUsingAchievementStats(specificID)
 		statTotal = GetStatisticByID(CATEGORYID_WEALTH, STATID_TRAVEL)
 		if statTotal then
 			gold, silver, copper, totalNum = StripMoneyTextureString(statTotal)
-			if gold and totalNum and totalNum >= 0 and addon.player_LT.taxi ~= totalNum then
-				addon.player_LT.taxi = totalNum
+			if gold and totalNum and totalNum >= 0 and self.player_LT.taxi ~= totalNum then
+				self.player_LT.taxi = totalNum
 				passChk = true
 			end
 		end
@@ -332,8 +332,8 @@ function addon:UpdateUsingAchievementStats(specificID)
 		statTotal = GetStatisticByID(CATEGORYID_WEALTH, STATID_LOOTED)
 		if statTotal then
 			gold, silver, copper, totalNum = StripMoneyTextureString(statTotal)
-			if gold and totalNum and totalNum >= 0 and addon.player_LT.loot ~= totalNum then
-				addon.player_LT.loot = totalNum
+			if gold and totalNum and totalNum >= 0 and self.player_LT.loot ~= totalNum then
+				self.player_LT.loot = totalNum
 				passChk = true
 			end
 		end
@@ -347,16 +347,16 @@ function addon:PLAYER_MONEY()
     local tmpMoney = GetPlayerMoney()
 	local diffMoney = 0
 
-	diffMoney = tmpMoney - (addon.player_DB.money or 0)
-	addon.player_DB.money = tmpMoney
+	diffMoney = tmpMoney - (self.player_DB.money or 0)
+	self.player_DB.money = tmpMoney
 	
-	if addon.merchant_start then
-		addon.merchant_trackGold = (addon.merchant_trackGold or 0) + diffMoney
+	if self.merchant_start then
+		self.merchant_trackGold = (self.merchant_trackGold or 0) + diffMoney
 	end
 
 	playerSession.lastMoneyDiff = diffMoney
 	playerSession.netProfit = (playerSession.netProfit or 0) + diffMoney
-	addon.player_LASS.sessionNetProfit = playerSession.netProfit or 0
+	self.player_LASS.sessionNetProfit = playerSession.netProfit or 0
 	
 	--force update of our achievement money tracker if it's enabled
 	local doChk = self:UpdateUsingAchievementStats("gold")
@@ -366,14 +366,14 @@ function addon:PLAYER_MONEY()
 		playerSession.money = (playerSession.money or 0) + diffMoney
 		if not doChk then
 			--only store these values IF we aren't using the achievement money tracker
-			addon.player_LT.money = (addon.player_LT.money or 0) + diffMoney
+			self.player_LT.money = (self.player_LT.money or 0) + diffMoney
 		end
-		addon.player_LASS.sessionMoney = playerSession.money or 0
+		self.player_LASS.sessionMoney = playerSession.money or 0
 	else
 		--add to our total spent.  Value will change depending if we are in net profit or loss
 		playerSession.spent = (playerSession.spent or 0) + diffMoney
-		addon.player_LT.spent = (addon.player_LT.spent or 0) + diffMoney
-		addon.player_LASS.sessionSpent = playerSession.spent or 0
+		self.player_LT.spent = (self.player_LT.spent or 0) + diffMoney
+		self.player_LASS.sessionSpent = playerSession.spent or 0
 	end
 
 	addon:UpdateButtonText()
@@ -381,10 +381,10 @@ function addon:PLAYER_MONEY()
 	--TAXI
 	if auditorTag and auditorTag == "taxi" then
 		
-		local oldTaxi = addon.player_LT.taxi or 0
+		local oldTaxi = self.player_LT.taxi or 0
 		
 		if self:UpdateUsingAchievementStats("taxi") then
-			local currTaxi = (addon.player_LT.taxi or 0) - oldTaxi --subtract old from new to get diff spent
+			local currTaxi = (self.player_LT.taxi or 0) - oldTaxi --subtract old from new to get diff spent
 			playerSession.taxi = (playerSession.taxi or 0) + currTaxi --now add it to our session total
 		else
 			--diff comes in as negative so make it positive for storing
@@ -441,7 +441,7 @@ function addon:QUEST_REMOVED(event, questID)
 			playerSession.quest = (playerSession.quest or 0) + questHistory[questID].money
 			
 			if not self:UpdateUsingAchievementStats("quest") then
-				addon.player_LT.quest = (addon.player_LT.quest or 0) + questHistory[questID].money
+				self.player_LT.quest = (self.player_LT.quest or 0) + questHistory[questID].money
 			end
 		end
 		questHistory[questID] = nil
@@ -455,7 +455,7 @@ function addon:QUEST_TURNED_IN(event, questID, xpReward, moneyReward)
 	playerSession.quest = (playerSession.quest or 0) + moneyReward
 	
 	if not self:UpdateUsingAchievementStats("quest") then
-		addon.player_LT.quest = (addon.player_LT.quest or 0) + moneyReward
+		self.player_LT.quest = (self.player_LT.quest or 0) + moneyReward
 	end
 end
 
@@ -465,7 +465,7 @@ function addon:CHAT_MSG_MONEY(event, msg)
 		playerSession.loot = (playerSession.loot or 0) + money
 		
 		if not self:UpdateUsingAchievementStats("loot") then
-			addon.player_LT.loot = (addon.player_LT.loot or 0) + money
+			self.player_LT.loot = (self.player_LT.loot or 0) + money
 		end
 	end
 end
@@ -673,7 +673,7 @@ function addon:CreateGoldFrame()
 	else
 		addon:SetWidth(staticGMFWidth)
 	end
-	addon.btnText = g
+	self.btnText = g
 
 	addon:SetScript("OnMouseDown",function()
 		if (IsShiftKeyDown()) then
@@ -708,7 +708,7 @@ function addon:CreateGoldFrame()
 		GameTooltip:AddLine(L.TooltipDragInfo, 64/255, 224/255, 208/255)
 		GameTooltip:AddLine(" ")
 		
-		GameTooltip:AddDoubleLine(L.TooltipTotalGold, addon.player_DB.money and DoMoneyIcon(addon.player_DB.money) or L.Waiting, 129/255, 209/255, 92/255, 1,1,1)
+		GameTooltip:AddDoubleLine(L.TooltipTotalGold, self.player_DB.money and DoMoneyIcon(self.player_DB.money) or L.Waiting, 129/255, 209/255, 92/255, 1,1,1)
 		
 		GameTooltip:AddLine(" ")
 		GameTooltip:AddLine(L.TooltipSession, 64/255, 224/255, 208/255)
@@ -772,13 +772,13 @@ function addon:CreateGoldFrame()
 		GameTooltip:AddLine(" ")
 		GameTooltip:AddLine(L.TooltipLastSession, 64/255, 224/255, 208/255)
 		
-		GameTooltip:AddDoubleLine(L.TooltipTotalEarned, addon.player_LASS.totalMoney and DoMoneyIcon(addon.player_LASS.totalMoney) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
-		GameTooltip:AddDoubleLine(L.TooltipTotalSpent, addon.player_LASS.totalSpent and DoMoneyIcon(addon.player_LASS.totalSpent) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
-		if addon.player_LASS.totalNetProfit then
-			if addon.player_LASS.totalNetProfit >= 0 then
-				GameTooltip:AddDoubleLine(L.TooltipNetProfit, DoMoneyIcon(addon.player_LASS.totalNetProfit), fontColor.r,fontColor.g,fontColor.b, 0,1,0)
+		GameTooltip:AddDoubleLine(L.TooltipTotalEarned, self.player_LASS.totalMoney and DoMoneyIcon(self.player_LASS.totalMoney) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+		GameTooltip:AddDoubleLine(L.TooltipTotalSpent, self.player_LASS.totalSpent and DoMoneyIcon(self.player_LASS.totalSpent) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+		if self.player_LASS.totalNetProfit then
+			if self.player_LASS.totalNetProfit >= 0 then
+				GameTooltip:AddDoubleLine(L.TooltipNetProfit, DoMoneyIcon(self.player_LASS.totalNetProfit), fontColor.r,fontColor.g,fontColor.b, 0,1,0)
 			else
-				GameTooltip:AddDoubleLine(L.TooltipNetProfit, DoMoneyIcon(addon.player_LASS.totalNetProfit), fontColor.r,fontColor.g,fontColor.b, 1,0,0) --red
+				GameTooltip:AddDoubleLine(L.TooltipNetProfit, DoMoneyIcon(self.player_LASS.totalNetProfit), fontColor.r,fontColor.g,fontColor.b, 1,0,0) --red
 			end
 		else
 			GameTooltip:AddDoubleLine(L.TooltipNetProfit, L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
@@ -786,10 +786,10 @@ function addon:CreateGoldFrame()
 		
 		GameTooltip:AddLine(" ")
 		GameTooltip:AddLine(L.TooltipLifetime, 64/255, 224/255, 208/255)
-		GameTooltip:AddDoubleLine(L.TooltipTotalEarned, addon.player_LT.money and DoMoneyIcon(addon.player_LT.money) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
-		GameTooltip:AddDoubleLine(L.TooltipTotalSpent, addon.player_LT.spent and DoMoneyIcon(addon.player_LT.spent) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
-		if addon.player_LT.money and addon.player_LT.spent then
-			local ltDiff = (addon.player_LT.money or 0) - (addon.player_LT.spent or 0)
+		GameTooltip:AddDoubleLine(L.TooltipTotalEarned, self.player_LT.money and DoMoneyIcon(self.player_LT.money) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+		GameTooltip:AddDoubleLine(L.TooltipTotalSpent, self.player_LT.spent and DoMoneyIcon(self.player_LT.spent) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+		if self.player_LT.money and self.player_LT.spent then
+			local ltDiff = (self.player_LT.money or 0) - (self.player_LT.spent or 0)
 			if ltDiff >= 0 then
 				GameTooltip:AddDoubleLine(L.TooltipDiff, DoMoneyIcon(ltDiff), fontColor.r,fontColor.g,fontColor.b, 0,1,0)
 			else
@@ -800,16 +800,16 @@ function addon:CreateGoldFrame()
 		end
 		
 		GameTooltip:AddLine(" ")
-		GameTooltip:AddDoubleLine(L.TooltipQuest, addon.player_LT.quest and DoMoneyIcon(addon.player_LT.quest) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
-		GameTooltip:AddDoubleLine(L.TooltipTaxi, addon.player_LT.taxi and DoMoneyIcon(addon.player_LT.taxi) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
-		GameTooltip:AddDoubleLine(L.TooltipLoot, addon.player_LT.loot and DoMoneyIcon(addon.player_LT.loot) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
-		GameTooltip:AddDoubleLine(L.TooltipRepairs, addon.player_LT.repairs and DoMoneyIcon(addon.player_LT.repairs) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+		GameTooltip:AddDoubleLine(L.TooltipQuest, self.player_LT.quest and DoMoneyIcon(self.player_LT.quest) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+		GameTooltip:AddDoubleLine(L.TooltipTaxi, self.player_LT.taxi and DoMoneyIcon(self.player_LT.taxi) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+		GameTooltip:AddDoubleLine(L.TooltipLoot, self.player_LT.loot and DoMoneyIcon(self.player_LT.loot) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+		GameTooltip:AddDoubleLine(L.TooltipRepairs, self.player_LT.repairs and DoMoneyIcon(self.player_LT.repairs) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
 		
-		if addon.player_LT.merchant then
-			if addon.player_LT.merchant >= 0 then
-				GameTooltip:AddDoubleLine(L.TooltipMerchant, DoMoneyIcon(addon.player_LT.merchant), fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+		if self.player_LT.merchant then
+			if self.player_LT.merchant >= 0 then
+				GameTooltip:AddDoubleLine(L.TooltipMerchant, DoMoneyIcon(self.player_LT.merchant), fontColor.r,fontColor.g,fontColor.b, 1,1,1)
 			else
-				GameTooltip:AddDoubleLine(L.TooltipMerchant, DoMoneyIcon(addon.player_LT.merchant), fontColor.r,fontColor.g,fontColor.b, 1,0,0) --red
+				GameTooltip:AddDoubleLine(L.TooltipMerchant, DoMoneyIcon(self.player_LT.merchant), fontColor.r,fontColor.g,fontColor.b, 1,0,0) --red
 			end
 		else
 			GameTooltip:AddDoubleLine(L.TooltipMerchant, L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
@@ -828,39 +828,39 @@ function addon:UpdateButtonText()
 	if XanGM_DB.showTotalEarned and playerSession.money then
 	
 		gold, silver, copper, goldString, silverString, copperString = ReturnCoinValue(playerSession.money, true)
-		addon.btnText:SetTextColor(1,210/255,0,1) --standard orange
+		self.btnText:SetTextColor(1,210/255,0,1) --standard orange
 		
 	elseif not XanGM_DB.showTotalEarned and playerSession.netProfit then
 	
 		if playerSession.netProfit > 0 then
 			gold, silver, copper, goldString, silverString, copperString = ReturnCoinValue(playerSession.netProfit, true)
-			addon.btnText:SetTextColor(0,1,0,1) --green
+			self.btnText:SetTextColor(0,1,0,1) --green
 		else
 			gold, silver, copper, goldString, silverString, copperString = ReturnCoinValue(playerSession.netProfit * -1, true)
-			addon.btnText:SetTextColor(1,0,0,1) --red
+			self.btnText:SetTextColor(1,0,0,1) --red
 		end
 		
 	else
-		addon.btnText:SetText("?")
-		addon.btnText:SetTextColor(1,210/255,0,1) --standard orange
+		self.btnText:SetText("?")
+		self.btnText:SetTextColor(1,210/255,0,1) --standard orange
 		addon:SetWidth(staticGMFWidth)
 		return
 	end
 
 	if gold and gold > 0 then
 		--only show gold as priority
-		addon.btnText:SetText(goldString)
+		self.btnText:SetText(goldString)
 	elseif silver and silver > 0 then
 		--as a backup show silver
-		addon.btnText:SetText(silverString)
+		self.btnText:SetText(silverString)
 	elseif copper and copper > 0 then
 		--last resort copper
-		addon.btnText:SetText(copperString)
+		self.btnText:SetText(copperString)
 	else
-		addon.btnText:SetText("?")
+		self.btnText:SetText("?")
 	end
-	if (addon.btnText:GetStringWidth() + 40) > staticGMFWidth then
-		addon:SetWidth(addon.btnText:GetStringWidth() + 40)
+	if (self.btnText:GetStringWidth() + 40) > staticGMFWidth then
+		addon:SetWidth(self.btnText:GetStringWidth() + 40)
 	else
 		addon:SetWidth(staticGMFWidth)
 	end
