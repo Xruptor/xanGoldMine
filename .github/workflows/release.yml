@@ -35,19 +35,19 @@ jobs:
       # we first have to clone the AddOn project, this is a required step
       - name: Clone project
         uses: actions/checkout@v1
-
-      # Package for Retail
-      - name: Package and release
+ 
+      # Package and release the retail version
+      - name: Create Retail Package
         uses: BigWigsMods/packager@master
 
-      # Package for Classic
-      - name: Package and release for Classic
+      # Package and release the Classic version
+      - name: Create Classic Package
         uses: BigWigsMods/packager@master
         with:
           args: -g classic
-		  
-      # Package for BCC (The Burning Crusade)
-      - name: Package and release for Classic
+
+      # Package and release the TBC version
+      - name: Create BCC Package
         uses: BigWigsMods/packager@master
         with:
           args: -g bcc
