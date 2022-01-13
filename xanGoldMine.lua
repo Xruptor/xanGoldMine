@@ -401,7 +401,30 @@ end
 --      Taxi        --
 ----------------------
 
+-- local taxiTime, onTaxi = 0
+ 
+-- hooksecurefunc("TakeTaxiNode", function(i)
+    -- taxiTime = GetTime()
+-- end)
+ 
+-- local f = CreateFrame("Frame")
+-- f:RegisterEvent("PLAYER_CONTROL_GAINED")
+-- f:RegisterEvent("PLAYER_CONTROL_LOST")
+-- f:SetScript("OnEvent", function(f, event)
+    -- if event == "PLAYER_CONTROL_LOST" then
+        -- if GetTime() - taxiTime < 1 then
+            -- print("Flight started!")
+            -- onTaxi = true
+        -- end
+    -- elseif onTaxi then
+        -- print("Flight ended!")
+        -- onTaxi = false
+    -- end
+-- end)
+
+
 addon:SetScript("OnUpdate", function(self, elapsed)
+	--if it's false then don't run this, only check when it's true
 	if not self.checkTaxi then
 		if not self.OnUpdateCounter or self.OnUpdateCounter > 0 then self.OnUpdateCounter = 0 end
 		return
@@ -633,6 +656,13 @@ local function DoMoneyIcon(money)
 	return GetMoneyString(money, true)
 end
 
+local function convertPositive(money)
+	if money < 0 then
+		return money * -1
+	end
+	return money
+end
+
 function addon:CreateGoldFrame()
 
 	addon:SetWidth(staticGMFWidth)
@@ -789,7 +819,7 @@ function addon:CreateGoldFrame()
 		GameTooltip:AddDoubleLine(L.TooltipTotalEarned, self.player_LT.money and DoMoneyIcon(self.player_LT.money) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
 		GameTooltip:AddDoubleLine(L.TooltipTotalSpent, self.player_LT.spent and DoMoneyIcon(self.player_LT.spent) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
 		if self.player_LT.money and self.player_LT.spent then
-			local ltDiff = (self.player_LT.money or 0) - (self.player_LT.spent or 0)
+			local ltDiff = (convertPositive(self.player_LT.money) or 0) - (convertPositive(self.player_LT.spent) or 0)
 			if ltDiff >= 0 then
 				GameTooltip:AddDoubleLine(L.TooltipDiff, DoMoneyIcon(ltDiff), fontColor.r,fontColor.g,fontColor.b, 0,1,0)
 			else
