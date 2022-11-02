@@ -39,7 +39,6 @@ local IsRetail = WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
 local questHistory = {}
 local playerSession = {}
 local starttime
-local auditorTag
 
 local COPPER_PER_SILVER = 100
 local SILVER_PER_GOLD = 100
@@ -50,6 +49,13 @@ local staticGMFWidth = 61
 ----------------------
 --      Enable      --
 ----------------------
+
+local function convertPositive(money)
+	if money and money < 0 then
+		return money * -1
+	end
+	return money
+end
 
 local CATEGORYID_WEALTH = 140
 local STATID_GOLD_AQUIRED = 328
@@ -270,7 +276,7 @@ function addon:EnableAddon()
 	self:RegisterEvent("QUEST_REMOVED")
 	self:RegisterEvent("QUEST_TURNED_IN")
 	self:RegisterEvent("CHAT_MSG_MONEY")
-	self:RegisterEvent("TAXIMAP_CLOSED")
+	self:RegisterEvent("PLAYER_CONTROL_LOST")
 	
 	self:RegisterEvent("MERCHANT_SHOW")
 	self:RegisterEvent("MERCHANT_CLOSED")
@@ -377,10 +383,10 @@ function addon:PLAYER_MONEY()
 	end
 
 	addon:UpdateButtonText()
-
+	
 	--TAXI
-	if auditorTag and auditorTag == "taxi" then
-		
+	if self.checkTaxi and UnitOnTaxi("player") then
+
 		local oldTaxi = self.player_LT.taxi or 0
 		
 		if self:UpdateUsingAchievementStats("taxi") then
@@ -388,11 +394,11 @@ function addon:PLAYER_MONEY()
 			playerSession.taxi = (playerSession.taxi or 0) + currTaxi --now add it to our session total
 		else
 			--diff comes in as negative so make it positive for storing
-			if diffMoney < 0 then diffMoney = diffMoney * -1 end
+			diffMoney = convertPositive(diffMoney)
 			playerSession.taxi = (playerSession.taxi or 0) + diffMoney
 		end
 		
-		auditorTag = nil
+		self.checkTaxi = false
 		return
 	end
 end
@@ -401,52 +407,8 @@ end
 --      Taxi        --
 ----------------------
 
--- local taxiTime, onTaxi = 0
- 
--- hooksecurefunc("TakeTaxiNode", function(i)
-    -- taxiTime = GetTime()
--- end)
- 
--- local f = CreateFrame("Frame")
--- f:RegisterEvent("PLAYER_CONTROL_GAINED")
--- f:RegisterEvent("PLAYER_CONTROL_LOST")
--- f:SetScript("OnEvent", function(f, event)
-    -- if event == "PLAYER_CONTROL_LOST" then
-        -- if GetTime() - taxiTime < 1 then
-            -- print("Flight started!")
-            -- onTaxi = true
-        -- end
-    -- elseif onTaxi then
-        -- print("Flight ended!")
-        -- onTaxi = false
-    -- end
--- end)
-
-
-addon:SetScript("OnUpdate", function(self, elapsed)
-	--if it's false then don't run this, only check when it's true
-	if not self.checkTaxi then
-		if not self.OnUpdateCounter or self.OnUpdateCounter > 0 then self.OnUpdateCounter = 0 end
-		return
-	end 
-	
-	self.OnUpdateCounter = (self.OnUpdateCounter or 0) + elapsed
-	if self.OnUpdateCounter < 2 then return end --two seconds should suffice
-	
-	self.OnUpdateCounter = 0
-
-	if UnitOnTaxi("player") then
-		if not auditorTag or auditorTag ~= "taxi" then
-			auditorTag = "taxi"
-			self:PLAYER_MONEY()
-		end
-	end
-	
-	--disable this we don't want it running constantly if it fails the condition check
-	self.checkTaxi = false
-end)
-
-function addon:TAXIMAP_CLOSED()
+function addon:PLAYER_CONTROL_LOST()
+	--this is fired when player loses control of their character, example they are riding a taxi.  So check for any changes to money
 	self.checkTaxi = true
 end
 
@@ -523,8 +485,8 @@ local function endMerchantTransactions()
 		if addon.merchant_repairCost then
 			--the stored repair cost and the current one has changed, the player has repaired something.
 			repairDiff = (addon.merchant_repairCost or 0) - (updateRepairCost() or 0)
-			if repairDiff < 0 then repairDiff = repairDiff * -1 end --make sure it's a positive number
-			
+			repairDiff = convertPositive(repairDiff)
+
 			playerSession.repairs = (playerSession.repairs or 0) + repairDiff
 			addon.player_LT.repairs = (addon.player_LT.repairs or 0) + repairDiff
 		end
@@ -652,15 +614,8 @@ end
 
 local function DoMoneyIcon(money)
 	if not money or not tonumber(money) then return false end
-	if money < 0 then money = money * -1 end
+	money = convertPositive(money)
 	return GetMoneyString(money, true)
-end
-
-local function convertPositive(money)
-	if money < 0 then
-		return money * -1
-	end
-	return money
 end
 
 function addon:CreateGoldFrame()
@@ -820,8 +775,11 @@ function addon:CreateGoldFrame()
 		GameTooltip:AddDoubleLine(L.TooltipTotalSpent, self.player_LT.spent and DoMoneyIcon(self.player_LT.spent) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
 		if self.player_LT.money and self.player_LT.spent then
 			local ltDiff = (convertPositive(self.player_LT.money) or 0) - (convertPositive(self.player_LT.spent) or 0)
-			if ltDiff >= 0 then
+
+			if ltDiff >= self.player_LT.money then
 				GameTooltip:AddDoubleLine(L.TooltipDiff, DoMoneyIcon(ltDiff), fontColor.r,fontColor.g,fontColor.b, 0,1,0)
+			elseif ltDiff >= 0 then
+				GameTooltip:AddDoubleLine(L.TooltipDiff, DoMoneyIcon(ltDiff), fontColor.r,fontColor.g,fontColor.b, 1,1,1)
 			else
 				GameTooltip:AddDoubleLine(L.TooltipDiff, DoMoneyIcon(ltDiff), fontColor.r,fontColor.g,fontColor.b, 1,0,0) --red
 			end
@@ -866,7 +824,7 @@ function addon:UpdateButtonText()
 			gold, silver, copper, goldString, silverString, copperString = ReturnCoinValue(playerSession.netProfit, true)
 			self.btnText:SetTextColor(0,1,0,1) --green
 		else
-			gold, silver, copper, goldString, silverString, copperString = ReturnCoinValue(playerSession.netProfit * -1, true)
+			gold, silver, copper, goldString, silverString, copperString = ReturnCoinValue(convertPositive(playerSession.netProfit), true)
 			self.btnText:SetTextColor(1,0,0,1) --red
 		end
 		
