@@ -396,6 +396,7 @@ function addon:PLAYER_MONEY()
 			--diff comes in as negative so make it positive for storing
 			diffMoney = convertPositive(diffMoney)
 			playerSession.taxi = (playerSession.taxi or 0) + diffMoney
+			self.player_LT.taxi = (self.player_LT.taxi or 0) + diffMoney
 		end
 		
 		self.checkTaxi = false
