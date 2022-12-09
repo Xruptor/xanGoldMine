@@ -46,6 +46,8 @@ local COPPER_PER_GOLD = COPPER_PER_SILVER * SILVER_PER_GOLD
 
 local staticGMFWidth = 61
 
+local xanGoldMineTooltip = CreateFrame("GameTooltip", "xanGoldMineTooltip", UIParent, "GameTooltipTemplate")
+
 ----------------------
 --      Enable      --
 ----------------------
@@ -678,7 +680,7 @@ function addon:CreateGoldFrame()
 		end
 	end)
 	addon:SetScript("OnLeave",function()
-		GameTooltip:Hide()
+		xanGoldMineTooltip:Hide()
 	end)
 
 	addon:SetScript("OnEnter",function()
@@ -686,55 +688,55 @@ function addon:CreateGoldFrame()
 		local fontColor = {r=1,g=210/255,b=0}
 		if not XanGM_DB.fontColor then fontColor = {r=1,g=1,b=1} end
 		
-		GameTooltip:SetOwner(self, "ANCHOR_NONE")
-		GameTooltip:SetPoint(self:GetTipAnchor(self))
-		GameTooltip:ClearLines()
+		xanGoldMineTooltip:SetOwner(self, "ANCHOR_TOP")
+		xanGoldMineTooltip:SetPoint(self:GetTipAnchor(addon))
+		xanGoldMineTooltip:ClearLines()
 
-		GameTooltip:AddLine(ADDON_NAME)
-		GameTooltip:AddLine(L.TooltipDragInfo, 64/255, 224/255, 208/255)
-		GameTooltip:AddLine(" ")
+		xanGoldMineTooltip:AddLine(ADDON_NAME)
+		xanGoldMineTooltip:AddLine(L.TooltipDragInfo, 64/255, 224/255, 208/255)
+		xanGoldMineTooltip:AddLine(" ")
 		
-		GameTooltip:AddDoubleLine(L.TooltipTotalGold, self.player_DB.money and DoMoneyIcon(self.player_DB.money) or L.Waiting, 129/255, 209/255, 92/255, 1,1,1)
+		xanGoldMineTooltip:AddDoubleLine(L.TooltipTotalGold, self.player_DB.money and DoMoneyIcon(self.player_DB.money) or L.Waiting, 129/255, 209/255, 92/255, 1,1,1)
 		
-		GameTooltip:AddLine(" ")
-		GameTooltip:AddLine(L.TooltipSession, 64/255, 224/255, 208/255)
-		GameTooltip:AddDoubleLine(L.TooltipTotalEarned, playerSession.money and DoMoneyIcon(playerSession.money) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
-		GameTooltip:AddDoubleLine(L.TooltipTotalSpent, playerSession.spent and DoMoneyIcon(playerSession.spent) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+		xanGoldMineTooltip:AddLine(" ")
+		xanGoldMineTooltip:AddLine(L.TooltipSession, 64/255, 224/255, 208/255)
+		xanGoldMineTooltip:AddDoubleLine(L.TooltipTotalEarned, playerSession.money and DoMoneyIcon(playerSession.money) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+		xanGoldMineTooltip:AddDoubleLine(L.TooltipTotalSpent, playerSession.spent and DoMoneyIcon(playerSession.spent) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
 		
 		if playerSession.netProfit then
 			if playerSession.netProfit >= 0 then
-				GameTooltip:AddDoubleLine(L.TooltipNetProfit, DoMoneyIcon(playerSession.netProfit), fontColor.r,fontColor.g,fontColor.b, 0,1,0)
+				xanGoldMineTooltip:AddDoubleLine(L.TooltipNetProfit, DoMoneyIcon(playerSession.netProfit), fontColor.r,fontColor.g,fontColor.b, 0,1,0)
 			else
-				GameTooltip:AddDoubleLine(L.TooltipNetProfit, DoMoneyIcon(playerSession.netProfit), fontColor.r,fontColor.g,fontColor.b, 1,0,0) --red
+				xanGoldMineTooltip:AddDoubleLine(L.TooltipNetProfit, DoMoneyIcon(playerSession.netProfit), fontColor.r,fontColor.g,fontColor.b, 1,0,0) --red
 			end
 		else
-			GameTooltip:AddDoubleLine(L.TooltipNetProfit, L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+			xanGoldMineTooltip:AddDoubleLine(L.TooltipNetProfit, L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
 		end
 		
 		if playerSession.lastMoneyDiff then
 			if playerSession.lastMoneyDiff >= 0 then
-				GameTooltip:AddDoubleLine(L.TooltipLastTransaction, DoMoneyIcon(playerSession.lastMoneyDiff), fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+				xanGoldMineTooltip:AddDoubleLine(L.TooltipLastTransaction, DoMoneyIcon(playerSession.lastMoneyDiff), fontColor.r,fontColor.g,fontColor.b, 1,1,1)
 			else
-				GameTooltip:AddDoubleLine(L.TooltipLastTransaction, DoMoneyIcon(playerSession.lastMoneyDiff), fontColor.r,fontColor.g,fontColor.b, 1,0,0) --red
+				xanGoldMineTooltip:AddDoubleLine(L.TooltipLastTransaction, DoMoneyIcon(playerSession.lastMoneyDiff), fontColor.r,fontColor.g,fontColor.b, 1,0,0) --red
 			end
 		else
-			GameTooltip:AddDoubleLine(L.TooltipLastTransaction, L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+			xanGoldMineTooltip:AddDoubleLine(L.TooltipLastTransaction, L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
 		end
 		
-		GameTooltip:AddLine(" ")
-		GameTooltip:AddDoubleLine(L.TooltipQuest, playerSession.quest and DoMoneyIcon(playerSession.quest) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
-		GameTooltip:AddDoubleLine(L.TooltipTaxi, playerSession.taxi and DoMoneyIcon(playerSession.taxi) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
-		GameTooltip:AddDoubleLine(L.TooltipLoot, playerSession.loot and DoMoneyIcon(playerSession.loot) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
-		GameTooltip:AddDoubleLine(L.TooltipRepairs, playerSession.repairs and DoMoneyIcon(playerSession.repairs) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+		xanGoldMineTooltip:AddLine(" ")
+		xanGoldMineTooltip:AddDoubleLine(L.TooltipQuest, playerSession.quest and DoMoneyIcon(playerSession.quest) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+		xanGoldMineTooltip:AddDoubleLine(L.TooltipTaxi, playerSession.taxi and DoMoneyIcon(playerSession.taxi) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+		xanGoldMineTooltip:AddDoubleLine(L.TooltipLoot, playerSession.loot and DoMoneyIcon(playerSession.loot) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+		xanGoldMineTooltip:AddDoubleLine(L.TooltipRepairs, playerSession.repairs and DoMoneyIcon(playerSession.repairs) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
 		
 		if playerSession.merchant then
 			if playerSession.merchant >= 0 then
-				GameTooltip:AddDoubleLine(L.TooltipMerchant, DoMoneyIcon(playerSession.merchant), fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+				xanGoldMineTooltip:AddDoubleLine(L.TooltipMerchant, DoMoneyIcon(playerSession.merchant), fontColor.r,fontColor.g,fontColor.b, 1,1,1)
 			else
-				GameTooltip:AddDoubleLine(L.TooltipMerchant, DoMoneyIcon(playerSession.merchant), fontColor.r,fontColor.g,fontColor.b, 1,0,0) --red
+				xanGoldMineTooltip:AddDoubleLine(L.TooltipMerchant, DoMoneyIcon(playerSession.merchant), fontColor.r,fontColor.g,fontColor.b, 1,0,0) --red
 			end
 		else
-			GameTooltip:AddDoubleLine(L.TooltipMerchant, L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+			xanGoldMineTooltip:AddDoubleLine(L.TooltipMerchant, L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
 		end
 		
 
@@ -744,67 +746,67 @@ function addon:CreateGoldFrame()
 			local goldPerMinute = ceil(goldPerSecond * 60)
 			local goldPerHour = ceil(goldPerSecond * 3600)
 			
-			GameTooltip:AddLine(" ")
-			GameTooltip:AddDoubleLine(L.TooltipGoldPerSec, DoMoneyIcon(goldPerSecond), fontColor.r,fontColor.g,fontColor.b, 1,1,1)
-			GameTooltip:AddDoubleLine(L.TooltipGoldPerMinute, DoMoneyIcon(goldPerMinute), fontColor.r,fontColor.g,fontColor.b, 1,1,1)
-			GameTooltip:AddDoubleLine(L.TooltipGoldPerHour, DoMoneyIcon(goldPerHour), fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+			xanGoldMineTooltip:AddLine(" ")
+			xanGoldMineTooltip:AddDoubleLine(L.TooltipGoldPerSec, DoMoneyIcon(goldPerSecond), fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+			xanGoldMineTooltip:AddDoubleLine(L.TooltipGoldPerMinute, DoMoneyIcon(goldPerMinute), fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+			xanGoldMineTooltip:AddDoubleLine(L.TooltipGoldPerHour, DoMoneyIcon(goldPerHour), fontColor.r,fontColor.g,fontColor.b, 1,1,1)
 		else
-			GameTooltip:AddLine(" ")
-			GameTooltip:AddDoubleLine(L.TooltipGoldPerSec, L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
-			GameTooltip:AddDoubleLine(L.TooltipGoldPerMinute, L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
-			GameTooltip:AddDoubleLine(L.TooltipGoldPerHour, L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+			xanGoldMineTooltip:AddLine(" ")
+			xanGoldMineTooltip:AddDoubleLine(L.TooltipGoldPerSec, L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+			xanGoldMineTooltip:AddDoubleLine(L.TooltipGoldPerMinute, L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+			xanGoldMineTooltip:AddDoubleLine(L.TooltipGoldPerHour, L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
 		end
 		
-		GameTooltip:AddLine(" ")
-		GameTooltip:AddLine(L.TooltipLastSession, 64/255, 224/255, 208/255)
+		xanGoldMineTooltip:AddLine(" ")
+		xanGoldMineTooltip:AddLine(L.TooltipLastSession, 64/255, 224/255, 208/255)
 		
-		GameTooltip:AddDoubleLine(L.TooltipTotalEarned, self.player_LASS.totalMoney and DoMoneyIcon(self.player_LASS.totalMoney) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
-		GameTooltip:AddDoubleLine(L.TooltipTotalSpent, self.player_LASS.totalSpent and DoMoneyIcon(self.player_LASS.totalSpent) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+		xanGoldMineTooltip:AddDoubleLine(L.TooltipTotalEarned, self.player_LASS.totalMoney and DoMoneyIcon(self.player_LASS.totalMoney) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+		xanGoldMineTooltip:AddDoubleLine(L.TooltipTotalSpent, self.player_LASS.totalSpent and DoMoneyIcon(self.player_LASS.totalSpent) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
 		if self.player_LASS.totalNetProfit then
 			if self.player_LASS.totalNetProfit >= 0 then
-				GameTooltip:AddDoubleLine(L.TooltipNetProfit, DoMoneyIcon(self.player_LASS.totalNetProfit), fontColor.r,fontColor.g,fontColor.b, 0,1,0)
+				xanGoldMineTooltip:AddDoubleLine(L.TooltipNetProfit, DoMoneyIcon(self.player_LASS.totalNetProfit), fontColor.r,fontColor.g,fontColor.b, 0,1,0)
 			else
-				GameTooltip:AddDoubleLine(L.TooltipNetProfit, DoMoneyIcon(self.player_LASS.totalNetProfit), fontColor.r,fontColor.g,fontColor.b, 1,0,0) --red
+				xanGoldMineTooltip:AddDoubleLine(L.TooltipNetProfit, DoMoneyIcon(self.player_LASS.totalNetProfit), fontColor.r,fontColor.g,fontColor.b, 1,0,0) --red
 			end
 		else
-			GameTooltip:AddDoubleLine(L.TooltipNetProfit, L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+			xanGoldMineTooltip:AddDoubleLine(L.TooltipNetProfit, L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
 		end
 		
-		GameTooltip:AddLine(" ")
-		GameTooltip:AddLine(L.TooltipLifetime, 64/255, 224/255, 208/255)
-		GameTooltip:AddDoubleLine(L.TooltipTotalEarned, self.player_LT.money and DoMoneyIcon(self.player_LT.money) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
-		GameTooltip:AddDoubleLine(L.TooltipTotalSpent, self.player_LT.spent and DoMoneyIcon(self.player_LT.spent) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+		xanGoldMineTooltip:AddLine(" ")
+		xanGoldMineTooltip:AddLine(L.TooltipLifetime, 64/255, 224/255, 208/255)
+		xanGoldMineTooltip:AddDoubleLine(L.TooltipTotalEarned, self.player_LT.money and DoMoneyIcon(self.player_LT.money) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+		xanGoldMineTooltip:AddDoubleLine(L.TooltipTotalSpent, self.player_LT.spent and DoMoneyIcon(self.player_LT.spent) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
 		if self.player_LT.money and self.player_LT.spent then
 			local ltDiff = (convertPositive(self.player_LT.money) or 0) - (convertPositive(self.player_LT.spent) or 0)
 
 			if ltDiff >= self.player_LT.money then
-				GameTooltip:AddDoubleLine(L.TooltipDiff, DoMoneyIcon(ltDiff), fontColor.r,fontColor.g,fontColor.b, 0,1,0)
+				xanGoldMineTooltip:AddDoubleLine(L.TooltipDiff, DoMoneyIcon(ltDiff), fontColor.r,fontColor.g,fontColor.b, 0,1,0)
 			elseif ltDiff >= 0 then
-				GameTooltip:AddDoubleLine(L.TooltipDiff, DoMoneyIcon(ltDiff), fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+				xanGoldMineTooltip:AddDoubleLine(L.TooltipDiff, DoMoneyIcon(ltDiff), fontColor.r,fontColor.g,fontColor.b, 1,1,1)
 			else
-				GameTooltip:AddDoubleLine(L.TooltipDiff, DoMoneyIcon(ltDiff), fontColor.r,fontColor.g,fontColor.b, 1,0,0) --red
+				xanGoldMineTooltip:AddDoubleLine(L.TooltipDiff, DoMoneyIcon(ltDiff), fontColor.r,fontColor.g,fontColor.b, 1,0,0) --red
 			end
 		else
-			GameTooltip:AddDoubleLine(L.TooltipDiff, L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+			xanGoldMineTooltip:AddDoubleLine(L.TooltipDiff, L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
 		end
 		
-		GameTooltip:AddLine(" ")
-		GameTooltip:AddDoubleLine(L.TooltipQuest, self.player_LT.quest and DoMoneyIcon(self.player_LT.quest) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
-		GameTooltip:AddDoubleLine(L.TooltipTaxi, self.player_LT.taxi and DoMoneyIcon(self.player_LT.taxi) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
-		GameTooltip:AddDoubleLine(L.TooltipLoot, self.player_LT.loot and DoMoneyIcon(self.player_LT.loot) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
-		GameTooltip:AddDoubleLine(L.TooltipRepairs, self.player_LT.repairs and DoMoneyIcon(self.player_LT.repairs) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+		xanGoldMineTooltip:AddLine(" ")
+		xanGoldMineTooltip:AddDoubleLine(L.TooltipQuest, self.player_LT.quest and DoMoneyIcon(self.player_LT.quest) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+		xanGoldMineTooltip:AddDoubleLine(L.TooltipTaxi, self.player_LT.taxi and DoMoneyIcon(self.player_LT.taxi) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+		xanGoldMineTooltip:AddDoubleLine(L.TooltipLoot, self.player_LT.loot and DoMoneyIcon(self.player_LT.loot) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+		xanGoldMineTooltip:AddDoubleLine(L.TooltipRepairs, self.player_LT.repairs and DoMoneyIcon(self.player_LT.repairs) or L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
 		
 		if self.player_LT.merchant then
 			if self.player_LT.merchant >= 0 then
-				GameTooltip:AddDoubleLine(L.TooltipMerchant, DoMoneyIcon(self.player_LT.merchant), fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+				xanGoldMineTooltip:AddDoubleLine(L.TooltipMerchant, DoMoneyIcon(self.player_LT.merchant), fontColor.r,fontColor.g,fontColor.b, 1,1,1)
 			else
-				GameTooltip:AddDoubleLine(L.TooltipMerchant, DoMoneyIcon(self.player_LT.merchant), fontColor.r,fontColor.g,fontColor.b, 1,0,0) --red
+				xanGoldMineTooltip:AddDoubleLine(L.TooltipMerchant, DoMoneyIcon(self.player_LT.merchant), fontColor.r,fontColor.g,fontColor.b, 1,0,0) --red
 			end
 		else
-			GameTooltip:AddDoubleLine(L.TooltipMerchant, L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
+			xanGoldMineTooltip:AddDoubleLine(L.TooltipMerchant, L.Waiting, fontColor.r,fontColor.g,fontColor.b, 1,1,1)
 		end
 		
-		GameTooltip:Show()
+		xanGoldMineTooltip:Show()
 	end)
 	
 	addon:Show()
