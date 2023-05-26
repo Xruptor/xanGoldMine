@@ -1,11 +1,11 @@
-## Interface: 100005
-## Interface-Retail: 100005
+## Interface: 100100
+## Interface-Retail: 100100
 ## Interface-Classic: 11403
 ## Interface-Wrath: 30401
 ## Title: xanGoldMine
 ## Notes: Tracks gold progression on your characters.
 ## Author: Xruptor
-## Version: 3.6
+## Version: 3.7
 ## X-Curse-Project-ID: 304744
 ## X-WoWI-ID: 24842
 ## X-Wago-ID: LvNAnR6o
