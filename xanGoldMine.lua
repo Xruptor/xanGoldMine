@@ -595,8 +595,8 @@ function xanGoldMine_SlashCommand(cmd)
 		elseif c and c:lower() == L.SlashScale then
 			if b then
 				local scalenum = strsub(cmd, b+2)
-				if scalenum and scalenum ~= "" and tonumber(scalenum) and tonumber(scalenum) > 0 and tonumber(scalenum) <= 200 then
-					addon.aboutPanel.sliderScale.func(tonumber(scalenum))
+				if scalenum and scalenum ~= "" and tonumber(scalenum) and tonumber(scalenum) >= 0.5 and tonumber(scalenum) <= 5 then
+					addon:SetAddonScale(tonumber(scalenum))
 				else
 					DEFAULT_CHAT_FRAME:AddMessage(L.SlashScaleSetInvalid)
 				end
@@ -628,7 +628,7 @@ function addon:CreateGoldFrame()
 	addon:SetMovable(true)
 	addon:SetClampedToScreen(true)
 	
-	addon:SetScale(XanGM_DB.scale)
+	addon:SetAddonScale(XanGM_DB.scale, true)
 	
 	if XanGM_DB.bgShown then
 		addon:SetBackdrop( {
@@ -810,6 +810,19 @@ function addon:CreateGoldFrame()
 	end)
 	
 	addon:Show()
+end
+
+function addon:SetAddonScale(value, bypass) 
+	--fix this in case it's ever smaller than   
+	if value < 0.5 then value = 0.5 end --anything smaller and it would vanish  
+	if value > 5 then value = 5 end --WAY too big  
+ 
+	XanGM_DB.scale = value 
+ 
+	if not bypass then 
+		DEFAULT_CHAT_FRAME:AddMessage(string.format(L.SlashScaleSet, value)) 
+	end 
+	addon:SetScale(XanGM_DB.scale) 
 end
 
 function addon:UpdateButtonText()
