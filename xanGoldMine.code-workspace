@@ -1,0 +1,27 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"Lua.diagnostics.globals": [
+			"MerchantFrame",
+			"SlashCmdList",
+			"DEFAULT_CHAT_FRAME",
+			"GOLD_AMOUNT_SYMBOL",
+			"SILVER_AMOUNT_SYMBOL",
+			"COPPER_AMOUNT_SYMBOL",
+			"GOLD_AMOUNT",
+			"SILVER_AMOUNT",
+			"COPPER_AMOUNT",
+			"SILVER_AMOUNT_TEXTURE",
+			"COPPER_AMOUNT_TEXTURE",
+			"QuestUtils_GetQuestName",
+			"tostringall",
+			"GOLD_AMOUNT_TEXTURE_STRING",
+			"GOLD_AMOUNT_TEXTURE",
+			"InterfaceOptions_AddCategory"
+		]
+	}
+}
