@@ -6,7 +6,7 @@
 ## Title: xanGoldMine
 ## Notes: Tracks gold progression on your characters.
 ## Author: Xruptor
-## Version: 3.9
+## Version: 4.0
 ## IconTexture: Interface\Minimap\Tracking\Auctioneer
 ## X-Curse-Project-ID: 304744
 ## X-WoWI-ID: 24842
