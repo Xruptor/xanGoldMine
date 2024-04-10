@@ -5,6 +5,7 @@
 ## Interface-Cata: 40400
 ## Title: xanGoldMine
 ## Notes: Tracks gold progression on your characters.
+## Notes-zhCN: 跟踪角色的金币总计。
 ## Author: Xruptor
 ## Version: 4.0
 ## IconTexture: Interface\Minimap\Tracking\Auctioneer
@@ -18,6 +19,7 @@ libs\LibStub\LibStub.lua
 libs\AceLocale-3.0\AceLocale-3.0.xml
 
 locale\enUS.lua
+locale\zhCN.lua
 
 xanGoldMine.lua
 config.lua
