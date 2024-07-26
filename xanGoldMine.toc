@@ -1,13 +1,12 @@
-## Interface: 100206
-## Interface-Retail: 100206
+## Interface: 100207
+## Interface-Retail: 100207
 ## Interface-Classic: 11502
-## Interface-Wrath: 30403
 ## Interface-Cata: 40400
 ## Title: xanGoldMine
 ## Notes: Tracks gold progression on your characters.
 ## Notes-zhCN: 跟踪角色的金币总计。
 ## Author: Xruptor
-## Version: 4.0
+## Version: 4.1
 ## IconTexture: Interface\Minimap\Tracking\Auctioneer
 ## X-Curse-Project-ID: 304744
 ## X-WoWI-ID: 24842
