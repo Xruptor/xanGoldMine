@@ -172,7 +172,7 @@ local function DoQuestLogScan()
 	if C_QuestLog and C_QuestLog.GetNumQuestLogEntries then
 		for i=1, C_QuestLog.GetNumQuestLogEntries() do
 			local questInfo = C_QuestLog.GetInfo(i)
-			if not questInfo.isHeader then
+			if questInfo and not questInfo.isHeader then
 				if questInfo.questID and not questHistory[questInfo.questID] then
 					questHistory[questInfo.questID] = {
 						money = GetQuestLogRewardMoney(questInfo.questID) or 0,
@@ -422,12 +422,12 @@ function addon:QUEST_ACCEPTED(event, questLogIndex, questID)
 end
 
 function addon:QUEST_REMOVED(event, questID)
-	if questHistory[questID] then
-		questHistory[questID] = nil
-	end
+	if not questID or not questHistory[questID] then return end
+	questHistory[questID] = nil
 end
 
 function addon:QUEST_TURNED_IN(event, questID, xpReward, moneyReward)
+	if not questID or not questHistory[questID] then return end
 	if questHistory[questID] and questHistory[questID].gotReward then
 		return
 	end
