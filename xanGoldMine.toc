@@ -3,7 +3,7 @@
 ## Notes: Tracks gold progression on your characters.
 ## Notes-zhCN: 跟踪角色的金币总计。
 ## Author: Xruptor
-## Version: 4.9
+## Version: 5.0
 ## IconTexture: Interface\Minimap\Tracking\Auctioneer
 ## X-Curse-Project-ID: 304744
 ## X-WoWI-ID: 24842
@@ -11,11 +11,18 @@
 ## OptionalDeps: tekDebug
 ## SavedVariablesPerCharacter: XanGM_DB
 
-libs\LibStub\LibStub.lua
-libs\AceLocale-3.0\AceLocale-3.0.xml
-
+locale\locales.lua
 locale\enUS.lua
+locale\deDE.lua
+locale\esES.lua
+locale\esMX.lua
+locale\frFR.lua
+locale\itIT.lua
+locale\koKR.lua
+locale\ptBR.lua
+locale\ruRU.lua
 locale\zhCN.lua
+locale\zhTW.lua
 
 xanGoldMine.lua
 config.lua

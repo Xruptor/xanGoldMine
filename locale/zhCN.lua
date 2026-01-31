@@ -1,6 +1,6 @@
-local ADDON_NAME, addon = ...
+local ADDON_NAME, private = ...
 
-local L = LibStub("AceLocale-3.0"):NewLocale(ADDON_NAME, "zhCN")
+local L = private:NewLocale("zhCN")
 if not L then return end
 
 L.SlashBG = "背景"
@@ -18,8 +18,8 @@ L.SlashResetGoldAlert = "xanGoldMine: 数据库金币数已重置！"
 
 L.SlashScale = "比例"
 L.SlashScaleSet = "xanGoldMine: 比例设置为 [|cFF20ff20%s|r]"
--- L.SlashScaleSetInvalid = "数值无效！数字必须是 [0.5 - 5]。(0.5, 1, 3, 4.6, 等..)"
--- L.SlashScaleInfo = "设置xanGoldMine耐久度窗口的比例 (0.5 - 5)。"
+L.SlashScaleSetInvalid = "数值无效！数字必须是 [0.5 - 5]。(0.5, 1, 3, 4.6, 等..)"
+L.SlashScaleInfo = "设置 xanGoldMine 窗口的比例 (0.5 - 5)。"
 L.SlashScaleText = "金币窗口比例"
 
 L.SlashTotalEarned = "总计"

@@ -1,16 +1,25 @@
 
-local ADDON_NAME, addon = ...
+local ADDON_NAME, private = ...
 if not _G[ADDON_NAME] then
 	_G[ADDON_NAME] = CreateFrame("Frame", ADDON_NAME, UIParent, BackdropTemplateMixin and "BackdropTemplate")
 end
-addon = _G[ADDON_NAME]
+local addon = _G[ADDON_NAME]
 
-local L = LibStub("AceLocale-3.0"):GetLocale(ADDON_NAME)
+-- Locale files load with the addon's private table (2nd return from "...").
+addon.private = private
+addon.L = (private and private.L) or addon.L or {}
+local L = addon.L
 
-local debugf = tekDebug and tekDebug:GetFrame(ADDON_NAME)
-local function Debug(...)
-    if debugf then debugf:AddMessage(string.join(", ", tostringall(...))) end
+local GetMetadata = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
+
+local function ClampScale(value)
+	value = tonumber(value) or 1
+	if value < 0.5 then return 0.5 end
+	if value > 5 then return 5 end
+	return value
 end
+
+addon.ClampScale = ClampScale
 
 addon:RegisterEvent("ADDON_LOADED")
 addon:SetScript("OnEvent", function(self, event, ...)
@@ -37,6 +46,11 @@ end)
 local questHistory = {}
 local playerSession = {}
 local starttime
+local lastQuestScan = 0
+local lastAchUpdate = 0
+local ACH_UPDATE_INTERVAL = 2
+local QUEST_SCAN_INTERVAL = 2
+local statCache = {}
 
 local COPPER_PER_SILVER = 100
 local SILVER_PER_GOLD = 100
@@ -45,6 +59,19 @@ local COPPER_PER_GOLD = COPPER_PER_SILVER * SILVER_PER_GOLD
 local staticGMFWidth = 61
 
 local xanGoldMineTooltip = CreateFrame("GameTooltip", "xanGoldMineTooltip", UIParent, "GameTooltipTemplate")
+local tooltipColorYellow = { r = 1, g = 210/255, b = 0 }
+local tooltipColorWhite = { r = 1, g = 1, b = 1 }
+
+local coinCache = {
+	money = nil,
+	separateThousands = nil,
+	gold = nil,
+	silver = nil,
+	copper = nil,
+	goldString = nil,
+	silverString = nil,
+	copperString = nil,
+}
 
 ----------------------
 --      Enable      --
@@ -64,11 +91,14 @@ local STATID_LOOTED = 333
 local STATID_TRAVEL = 1146
 
 --get this from the Achievement panel under Statistics
-function GetStatisticByID(categoryID, statID)
-	if not CanShowAchievementUI() then return nil end
+local function GetStatisticByID(categoryID, statID)
+	if not CanShowAchievementUI or not CanShowAchievementUI() then return nil end
 
 	--for _, cID in pairs(GetStatisticsCategoryList()) do
 	--	if cID and cID == categoryID then
+			if not GetCategoryInfo or not GetCategoryNumAchievements or not GetAchievementInfo or not GetStatistic then
+				return nil
+			end
 			local Title, ParentCategoryId, Something = GetCategoryInfo(categoryID)
 			local statisticCount = GetCategoryNumAchievements(categoryID)
 
@@ -85,7 +115,7 @@ function GetStatisticByID(categoryID, statID)
 end
 
 local function GetPlayerMoney()
-	return (GetMoney() or 0) - GetCursorMoney() - GetPlayerTradeMoney()
+	return (GetMoney() or 0) - (GetCursorMoney() or 0) - (GetPlayerTradeMoney() or 0)
 end
 
 local function StripMoneyTextureString(moneyString)
@@ -138,6 +168,9 @@ end
 
 local function ReturnCoinValue(money, separateThousands)
 	if not money then return end
+	if coinCache.money == money and coinCache.separateThousands == separateThousands then
+		return coinCache.gold, coinCache.silver, coinCache.copper, coinCache.goldString, coinCache.silverString, coinCache.copperString
+	end
 
 	local goldString, silverString, copperString
 
@@ -151,7 +184,6 @@ local function ReturnCoinValue(money, separateThousands)
 		else
 			goldString = gold..GOLD_AMOUNT_SYMBOL
 		end
-		goldString = gold..GOLD_AMOUNT_SYMBOL
 		silverString = silver..SILVER_AMOUNT_SYMBOL
 		copperString = copper..COPPER_AMOUNT_SYMBOL
 	else
@@ -164,10 +196,22 @@ local function ReturnCoinValue(money, separateThousands)
 		copperString = COPPER_AMOUNT_TEXTURE:format(copper, 0, 0)
 	end
 
+	coinCache.money = money
+	coinCache.separateThousands = separateThousands
+	coinCache.gold = gold
+	coinCache.silver = silver
+	coinCache.copper = copper
+	coinCache.goldString = goldString
+	coinCache.silverString = silverString
+	coinCache.copperString = copperString
+
 	return gold, silver, copper, goldString, silverString, copperString
 end
 
-local function DoQuestLogScan()
+local function DoQuestLogScan(force)
+	local now = GetTime()
+	if not force and (now - lastQuestScan) < QUEST_SCAN_INTERVAL then return end
+	lastQuestScan = now
 
 	if C_QuestLog and C_QuestLog.GetNumQuestLogEntries then
 		for i=1, C_QuestLog.GetNumQuestLogEntries() do
@@ -201,6 +245,20 @@ local function DoQuestLogScan()
 
 end
 
+local function ParseStatTotal(statID, statTotal)
+	if not statTotal then return nil end
+	local cache = statCache[statID]
+	if cache and cache.raw == statTotal then
+		return cache.total
+	end
+	local gold, silver, copper, totalNum = StripMoneyTextureString(statTotal)
+	if gold and totalNum and totalNum >= 0 then
+		statCache[statID] = { raw = statTotal, total = totalNum }
+		return totalNum
+	end
+	return nil
+end
+
 local function ChatMoneyScan(msg)
 	local GOLD_SCAN_AMOUNT = string.gsub(GOLD_AMOUNT, "%%d", "(%%d+)")
 	local SILVER_SCAN_AMOUNT = string.gsub(SILVER_AMOUNT, "%%d", "(%%d+)")
@@ -230,12 +288,15 @@ function addon:CreatePlayerGoldDB(resetGold)
 
 	local currentPlayer = UnitName("player")
 	local currentRealm = select(2, UnitFullName("player")) --get shortend realm name with no spaces and dashes
+	if not currentRealm or currentRealm == "" then
+		currentRealm = GetRealmName() or "UNKNOWN"
+	end
+
+	XanGM_DB[currentRealm] = XanGM_DB[currentRealm] or {}
 
 	if resetGold then
 		XanGM_DB[currentRealm][currentPlayer] = nil
 	end
-
-	XanGM_DB[currentRealm] = XanGM_DB[currentRealm] or {}
 	XanGM_DB[currentRealm][currentPlayer] = XanGM_DB[currentRealm][currentPlayer] or {}
 	self.player_DB = XanGM_DB[currentRealm][currentPlayer]
 	if not self.player_DB.money then self.player_DB.money = GetPlayerMoney() end
@@ -251,6 +312,7 @@ function addon:CreatePlayerGoldDB(resetGold)
 	self.player_LASS.totalNetProfit = self.player_LASS.sessionNetProfit or 0
 
 	self:UpdateUsingAchievementStats()
+	addon.tooltipDirty = true
 end
 
 function addon:EnableAddon()
@@ -267,7 +329,7 @@ function addon:EnableAddon()
 
 	self:CreatePlayerGoldDB()
 
-	DoQuestLogScan()
+	DoQuestLogScan(true)
 
 	starttime = GetTime()
 
@@ -286,7 +348,7 @@ function addon:EnableAddon()
 
 	if self.configFrame then self.configFrame:EnableConfig() end
 
-	local ver = C_AddOns.GetAddOnMetadata(ADDON_NAME,"Version") or '1.0'
+	local ver = (GetMetadata and GetMetadata(ADDON_NAME, "Version")) or "1.0"
 	DEFAULT_CHAT_FRAME:AddMessage(string.format("|cFF99CC33%s|r [v|cFF20ff20%s|r] loaded:   /xgm", ADDON_NAME, ver or "1.0"))
 end
 
@@ -296,55 +358,54 @@ function addon:UpdateUsingAchievementStats(specificID)
 
 	local statTotal, gold, silver, copper, totalNum
 	local passChk = false
+	local now = GetTime()
+	local minInterval = specificID and 0.5 or ACH_UPDATE_INTERVAL
+	if (now - lastAchUpdate) < minInterval then return false end
+	lastAchUpdate = now
 
 	if not specificID or specificID == "gold" then
 		--total gold aquired
 		statTotal = GetStatisticByID(CATEGORYID_WEALTH, STATID_GOLD_AQUIRED)
-		if statTotal then
-			gold, silver, copper, totalNum = StripMoneyTextureString(statTotal)
-			if gold and totalNum and totalNum >= 0 and self.player_LT.money ~= totalNum then
-				self.player_LT.money = totalNum
-				passChk = true
-			end
+		totalNum = ParseStatTotal(STATID_GOLD_AQUIRED, statTotal)
+		if totalNum and self.player_LT.money ~= totalNum then
+			self.player_LT.money = totalNum
+			passChk = true
 		end
 	end
 
 	if not specificID or specificID == "quest" then
 		--total gold quests
 		statTotal = GetStatisticByID(CATEGORYID_WEALTH, STATID_QUEST_REWARDS)
-		if statTotal then
-			gold, silver, copper, totalNum = StripMoneyTextureString(statTotal)
-			if gold and totalNum and totalNum >= 0 and self.player_LT.quest ~= totalNum then
-				self.player_LT.quest = totalNum
-				passChk = true
-			end
+		totalNum = ParseStatTotal(STATID_QUEST_REWARDS, statTotal)
+		if totalNum and self.player_LT.quest ~= totalNum then
+			self.player_LT.quest = totalNum
+			passChk = true
 		end
 	end
 
 	if not specificID or specificID == "taxi" then
 		--total gold taxi
 		statTotal = GetStatisticByID(CATEGORYID_WEALTH, STATID_TRAVEL)
-		if statTotal then
-			gold, silver, copper, totalNum = StripMoneyTextureString(statTotal)
-			if gold and totalNum and totalNum >= 0 and self.player_LT.taxi ~= totalNum then
-				self.player_LT.taxi = totalNum
-				passChk = true
-			end
+		totalNum = ParseStatTotal(STATID_TRAVEL, statTotal)
+		if totalNum and self.player_LT.taxi ~= totalNum then
+			self.player_LT.taxi = totalNum
+			passChk = true
 		end
 	end
 
 	if not specificID or specificID == "loot" then
 		--total gold loot
 		statTotal = GetStatisticByID(CATEGORYID_WEALTH, STATID_LOOTED)
-		if statTotal then
-			gold, silver, copper, totalNum = StripMoneyTextureString(statTotal)
-			if gold and totalNum and totalNum >= 0 and self.player_LT.loot ~= totalNum then
-				self.player_LT.loot = totalNum
-				passChk = true
-			end
+		totalNum = ParseStatTotal(STATID_LOOTED, statTotal)
+		if totalNum and self.player_LT.loot ~= totalNum then
+			self.player_LT.loot = totalNum
+			passChk = true
 		end
 	end
 
+	if passChk then
+		addon.tooltipDirty = true
+	end
 	return passChk
 end
 
@@ -383,6 +444,7 @@ function addon:PLAYER_MONEY()
 	end
 
 	addon:UpdateButtonText()
+	addon.tooltipDirty = true
 
 	--TAXI
 	if self.checkTaxi and UnitOnTaxi("player") then
@@ -437,6 +499,7 @@ function addon:QUEST_TURNED_IN(event, questID, xpReward, moneyReward)
 	if not self:UpdateUsingAchievementStats("quest") then
 		self.player_LT.quest = (self.player_LT.quest or 0) + moneyReward
 	end
+	addon.tooltipDirty = true
 end
 
 function addon:CHAT_MSG_MONEY(event, msg)
@@ -447,6 +510,7 @@ function addon:CHAT_MSG_MONEY(event, msg)
 		if not self:UpdateUsingAchievementStats("loot") then
 			self.player_LT.loot = (self.player_LT.loot or 0) + money
 		end
+		addon.tooltipDirty = true
 	end
 end
 
@@ -499,6 +563,7 @@ local function endMerchantTransactions()
 	addon.merchant_trackGold = 0
 	addon.usedGuildRepair = nil
 	addon.merchant_start = nil
+	addon.tooltipDirty = true
 end
 
 --these merchant functions can be slow depending on other addons
@@ -511,50 +576,16 @@ function addon:MERCHANT_CLOSED()
 end
 
 --these two merchant hooks are really catch alls if the registered event ones fail
-MerchantFrame:HookScript("OnShow", function(self)
-	startMerchantTransactions()
-end)
-MerchantFrame:HookScript("OnHide", function(self)
-	endMerchantTransactions()
-end)
+if _G.MerchantFrame and _G.MerchantFrame.HookScript then
+	_G.MerchantFrame:HookScript("OnShow", function()
+		startMerchantTransactions()
+	end)
+	_G.MerchantFrame:HookScript("OnHide", function()
+		endMerchantTransactions()
+	end)
+end
 
-function xanGoldMine_SlashCommand(cmd)
-
-	local a,b,c=strfind(cmd, "(%S+)"); --contiguous string of non-space characters
-
-	if a then
-		if c and c:lower() == L.SlashBG then
-			addon.aboutPanel.btnBG.func(true)
-			return true
-		elseif c and c:lower() == L.SlashReset then
-			addon.aboutPanel.btnReset.func()
-			return true
-		elseif c and c:lower() == L.SlashResetGold then
-			addon:CreatePlayerGoldDB(true)
-			DEFAULT_CHAT_FRAME:AddMessage(L.SlashResetGoldAlert)
-			return true
-		elseif c and c:lower() == L.SlashAchLifetimeTotals then
-			addon.aboutPanel.btnAchLifetimeTotals.func()
-			return true
-		elseif c and c:lower() == L.SlashTotalEarned then
-			addon.aboutPanel.btnTotalEarned.func(true)
-			return true
-		elseif c and c:lower() == L.SlashFontColor then
-			addon.aboutPanel.btnFontColor.func(true)
-			return true
-		elseif c and c:lower() == L.SlashScale then
-			if b then
-				local scalenum = strsub(cmd, b+2)
-				if scalenum and scalenum ~= "" and tonumber(scalenum) and tonumber(scalenum) >= 0.5 and tonumber(scalenum) <= 5 then
-					addon:SetAddonScale(tonumber(scalenum))
-				else
-					DEFAULT_CHAT_FRAME:AddMessage(L.SlashScaleSetInvalid)
-				end
-				return true
-			end
-		end
-	end
-
+local function PrintSlashHelp()
 	DEFAULT_CHAT_FRAME:AddMessage(ADDON_NAME, 64/255, 224/255, 208/255)
 	DEFAULT_CHAT_FRAME:AddMessage("/xgm "..L.SlashReset.." - "..L.SlashResetInfo)
 	DEFAULT_CHAT_FRAME:AddMessage("/xgm "..L.SlashBG.." - "..L.SlashBGInfo)
@@ -563,6 +594,46 @@ function xanGoldMine_SlashCommand(cmd)
 	DEFAULT_CHAT_FRAME:AddMessage("/xgm "..L.SlashFontColor.." - "..L.SlashFontColorInfo)
 	DEFAULT_CHAT_FRAME:AddMessage("/xgm "..L.SlashResetGold.." - "..L.SlashResetGoldInfo)
 	DEFAULT_CHAT_FRAME:AddMessage("/xgm "..L.SlashAchLifetimeTotals.." - "..L.SlashAchLifetimeTotalsInfo)
+end
+
+function xanGoldMine_SlashCommand(cmd)
+	local subcmd, rest = cmd:match("^%s*(%S+)%s*(.-)%s*$")
+	if not subcmd then
+		PrintSlashHelp()
+		return
+	end
+
+	subcmd = subcmd:lower()
+	if subcmd == L.SlashBG then
+		addon.aboutPanel.btnBG.func(true)
+		return
+	elseif subcmd == L.SlashReset then
+		addon.aboutPanel.btnReset.func()
+		return
+	elseif subcmd == L.SlashResetGold then
+		addon:CreatePlayerGoldDB(true)
+		DEFAULT_CHAT_FRAME:AddMessage(L.SlashResetGoldAlert)
+		return
+	elseif subcmd == L.SlashAchLifetimeTotals then
+		addon.aboutPanel.btnAchLifetimeTotals.func()
+		return
+	elseif subcmd == L.SlashTotalEarned then
+		addon.aboutPanel.btnTotalEarned.func(true)
+		return
+	elseif subcmd == L.SlashFontColor then
+		addon.aboutPanel.btnFontColor.func(true)
+		return
+	elseif subcmd == L.SlashScale then
+		local scalenum = tonumber(rest)
+		if scalenum and scalenum >= 0.5 and scalenum <= 5 then
+			addon:SetAddonScale(scalenum)
+		else
+			DEFAULT_CHAT_FRAME:AddMessage(L.SlashScaleSetInvalid)
+		end
+		return
+	end
+
+	PrintSlashHelp()
 end
 
 local function DoMoneyIcon(money)
@@ -634,9 +705,11 @@ function addon:CreateGoldFrame()
 	end)
 
 	addon:SetScript("OnEnter",function()
+		if xanGoldMineTooltip:IsShown() and not addon.tooltipDirty then
+			return
+		end
 
-		local fontColor = {r=1,g=210/255,b=0}
-		if not XanGM_DB.fontColor then fontColor = {r=1,g=1,b=1} end
+		local fontColor = XanGM_DB.fontColor and tooltipColorYellow or tooltipColorWhite
 
 		xanGoldMineTooltip:SetOwner(self, "ANCHOR_TOP")
 		xanGoldMineTooltip:SetPoint(self:GetTipAnchor(addon))
@@ -757,6 +830,7 @@ function addon:CreateGoldFrame()
 		end
 
 		xanGoldMineTooltip:Show()
+		addon.tooltipDirty = false
 	end)
 
 	addon:Show()
@@ -764,15 +838,14 @@ end
 
 function addon:SetAddonScale(value, bypass)
 	--fix this in case it's ever smaller than   
-	if value < 0.5 then value = 0.5 end --anything smaller and it would vanish  
-	if value > 5 then value = 5 end --WAY too big  
-
+	value = ClampScale(value)
 	XanGM_DB.scale = value
 
 	if not bypass then
 		DEFAULT_CHAT_FRAME:AddMessage(string.format(L.SlashScaleSet, value))
 	end
 	addon:SetScale(XanGM_DB.scale)
+	addon.tooltipDirty = true
 end
 
 function addon:UpdateButtonText()
@@ -836,7 +909,6 @@ function addon:SaveLayout(frame)
 			["yOfs"] = 0,
 		}
 		opt = XanGM_DB[frame]
-		return
 	end
 
 	local point, relativeTo, relativePoint, xOfs, yOfs = _G[frame]:GetPoint()
