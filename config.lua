@@ -20,55 +20,46 @@ end
 
 local lastObject
 local function addConfigEntry(objEntry, adjustX, adjustY)
-
 	objEntry:ClearAllPoints()
-
 	if not lastObject then
 		objEntry:SetPoint("TOPLEFT", 20, -150)
 	else
 		objEntry:SetPoint("LEFT", lastObject, "BOTTOMLEFT", adjustX or 0, adjustY or -30)
 	end
-
 	lastObject = objEntry
 end
 
 local chkBoxIndex = 0
 local function createCheckbutton(parentFrame, displayText)
 	chkBoxIndex = chkBoxIndex + 1
-
-	local checkbutton = CreateFrame("CheckButton", ADDON_NAME.."_config_chkbtn_" .. chkBoxIndex, parentFrame, "ChatConfigCheckButtonTemplate")
-	local label = _G[checkbutton:GetName() .. "Text"]
-	if label then
-		label:SetText(" " .. (displayText or ""))
-	end
-
+	local checkbutton = CreateFrame("CheckButton", ADDON_NAME.."_config_chkbtn_"..chkBoxIndex, parentFrame, "ChatConfigCheckButtonTemplate")
+	local label = _G[checkbutton:GetName().."Text"]
+	if label then label:SetText(" "..(displayText or "")) end
 	return checkbutton
 end
 
 local buttonIndex = 0
 local function createButton(parentFrame, displayText)
 	buttonIndex = buttonIndex + 1
-
-	local button = CreateFrame("Button", ADDON_NAME.."_config_button_" .. buttonIndex, parentFrame, "UIPanelButtonTemplate")
+	local button = CreateFrame("Button", ADDON_NAME.."_config_button_"..buttonIndex, parentFrame, "UIPanelButtonTemplate")
 	button:SetText(displayText)
 	button:SetHeight(30)
 	button:SetWidth(button:GetTextWidth() + 30)
-
 	return button
 end
+
+local SLIDER_BACKDROP = {
+	bgFile   = "Interface\\Buttons\\UI-SliderBar-Background",
+	edgeFile = "Interface\\Buttons\\UI-SliderBar-Border",
+	tile = true, tileSize = 8, edgeSize = 8,
+	insets = { left = 3, right = 3, top = 6, bottom = 6 },
+}
 
 local sliderIndex = 0
 local function createSlider(parentFrame, displayText, minVal, maxVal, setStep)
 	sliderIndex = sliderIndex + 1
 
-	local SliderBackdrop  = {
-		bgFile = "Interface\\Buttons\\UI-SliderBar-Background",
-		edgeFile = "Interface\\Buttons\\UI-SliderBar-Border",
-		tile = true, tileSize = 8, edgeSize = 8,
-		insets = { left = 3, right = 3, top = 6, bottom = 6 }
-	}
-
-	local slider = CreateFrame("Slider", ADDON_NAME.."_config_slider_" .. sliderIndex, parentFrame, BackdropTemplateMixin and "BackdropTemplate")
+	local slider = CreateFrame("Slider", ADDON_NAME.."_config_slider_"..sliderIndex, parentFrame, BackdropTemplateMixin and "BackdropTemplate")
 	slider:SetOrientation("HORIZONTAL")
 	slider:SetHeight(15)
 	slider:SetWidth(300)
@@ -76,7 +67,7 @@ local function createSlider(parentFrame, displayText, minVal, maxVal, setStep)
 	slider:SetThumbTexture("Interface\\Buttons\\UI-SliderBar-Button-Horizontal")
 	slider:SetMinMaxValues(minVal or 0.5, maxVal or 5)
 	slider:SetValue(0.5)
-	slider:SetBackdrop(SliderBackdrop)
+	slider:SetBackdrop(SLIDER_BACKDROP)
 	slider:SetValueStep(setStep or 1)
 
 	local label = slider:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -95,24 +86,21 @@ local function createSlider(parentFrame, displayText, minVal, maxVal, setStep)
 
 	local currVal = slider:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
 	currVal:SetPoint("TOPRIGHT", slider, "BOTTOMRIGHT", 45, 12)
-	currVal:SetText('(?)')
+	currVal:SetText("(?)")
 	slider.currVal = currVal
 
 	return slider
 end
 
 local function LoadAboutFrame()
-
-	--Code inspired from tekKonfigAboutPanel
 	local about = CreateFrame("Frame", ADDON_NAME.."AboutPanel", InterfaceOptionsFramePanelContainer, BackdropTemplateMixin and "BackdropTemplate")
 	about.name = ADDON_NAME
 	about:Hide()
 
-    local fields = {"Version", "Author"}
-	local notes = (GetMetadata and GetMetadata(ADDON_NAME, "Notes")) or ""
+	local fields = { "Version", "Author" }
+	local notes  = (GetMetadata and GetMetadata(ADDON_NAME, "Notes")) or ""
 
-    local title = about:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-
+	local title = about:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
 	title:SetPoint("TOPLEFT", 16, -16)
 	title:SetText(ADDON_NAME)
 
@@ -126,31 +114,31 @@ local function LoadAboutFrame()
 	subtitle:SetText(notes)
 
 	local anchor
-	for _,field in pairs(fields) do
+	for _, field in pairs(fields) do
 		local val = GetMetadata and GetMetadata(ADDON_NAME, field)
 		if val then
-			local title = about:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-			title:SetWidth(75)
-			if not anchor then title:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", -2, -8)
-			else title:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -6) end
-			title:SetJustifyH("RIGHT")
-			title:SetText(field:gsub("X%-", ""))
+			local ftitle = about:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+			ftitle:SetWidth(75)
+			if not anchor then ftitle:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", -2, -8)
+			else ftitle:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -6) end
+			ftitle:SetJustifyH("RIGHT")
+			ftitle:SetText(field:gsub("X%-", ""))
 
 			local detail = about:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-			detail:SetPoint("LEFT", title, "RIGHT", 4, 0)
+			detail:SetPoint("LEFT", ftitle, "RIGHT", 4, 0)
 			detail:SetPoint("RIGHT", -16, 0)
 			detail:SetJustifyH("LEFT")
 			detail:SetText(val)
 
-			anchor = title
+			anchor = ftitle
 		end
 	end
 
 	if InterfaceOptions_AddCategory then
 		InterfaceOptions_AddCategory(about)
 	else
-		local category, layout = _G.Settings.RegisterCanvasLayoutCategory(about, about.name);
-		_G.Settings.RegisterAddOnCategory(category);
+		local category = _G.Settings.RegisterCanvasLayoutCategory(about, about.name)
+		_G.Settings.RegisterAddOnCategory(category)
 		addon.settingsCategory = category
 	end
 
@@ -158,32 +146,26 @@ local function LoadAboutFrame()
 end
 
 function configFrame:EnableConfig()
-
 	addon.aboutPanel = LoadAboutFrame()
 
-	--bg shown
+	-- Background toggle
 	local btnBG = createCheckbutton(addon.aboutPanel, L.SlashBGInfo)
 	btnBG:SetScript("OnShow", function() btnBG:SetChecked(XanGM_DB.bgShown) end)
-	btnBG.func = function(slashSwitch)
-		local value = XanGM_DB.bgShown
-		if not slashSwitch then value = XanGM_DB.bgShown end
-
-		if value then
+	btnBG.func = function()
+		if XanGM_DB.bgShown then
 			XanGM_DB.bgShown = false
 			DEFAULT_CHAT_FRAME:AddMessage(L.SlashBGOff)
 		else
 			XanGM_DB.bgShown = true
 			DEFAULT_CHAT_FRAME:AddMessage(L.SlashBGOn)
 		end
-
 		addon:BackgroundToggle()
 	end
 	btnBG:SetScript("OnClick", btnBG.func)
-
 	addConfigEntry(btnBG, 0, -20)
 	addon.aboutPanel.btnBG = btnBG
 
-	--reset
+	-- Reset position
 	local btnReset = createButton(addon.aboutPanel, L.SlashResetInfo)
 	btnReset.func = function()
 		DEFAULT_CHAT_FRAME:AddMessage(L.SlashResetAlert)
@@ -191,11 +173,10 @@ function configFrame:EnableConfig()
 		addon:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 	end
 	btnReset:SetScript("OnClick", btnReset.func)
-
 	addConfigEntry(btnReset, 0, -30)
 	addon.aboutPanel.btnReset = btnReset
 
-	--scale
+	-- Scale slider
 	local sliderScale = createSlider(addon.aboutPanel, L.SlashScaleText, 0.5, 5, 0.1)
 	sliderScale:SetScript("OnShow", function()
 		local scale = ClampScale(XanGM_DB.scale)
@@ -203,48 +184,38 @@ function configFrame:EnableConfig()
 		sliderScale:SetValue(scale)
 		sliderScale.currVal:SetText("("..scale..")")
 	end)
-	sliderScale.sliderFunc = function(self, value)
+	sliderScale:SetScript("OnValueChanged", function(_, value)
 		value = ClampScale(math.floor(value * 10) / 10)
 		sliderScale.currVal:SetText("("..value..")")
-	end
-	sliderScale.sliderMouseUp = function(self, button)
-		addon:SetAddonScale(ClampScale(math.floor(self:GetValue() * 10) / 10))
-	end
-	sliderScale:SetScript("OnValueChanged", sliderScale.sliderFunc)
-	sliderScale:SetScript("OnMouseUp", sliderScale.sliderMouseUp)
-
+	end)
+	sliderScale:SetScript("OnMouseUp", function(slider)
+		addon:SetAddonScale(ClampScale(math.floor(slider:GetValue() * 10) / 10))
+	end)
 	addConfigEntry(sliderScale, 0, -40)
 	addon.aboutPanel.sliderScale = sliderScale
 
-
+	-- Total earned toggle
 	local btnTotalEarned = createCheckbutton(addon.aboutPanel, L.SlashTotalEarnedChkBtn)
 	btnTotalEarned:SetScript("OnShow", function() btnTotalEarned:SetChecked(XanGM_DB.showTotalEarned) end)
-	btnTotalEarned.func = function(slashSwitch)
-		local value = XanGM_DB.showTotalEarned
-		if not slashSwitch then value = XanGM_DB.showTotalEarned end
-
-		if value then
+	btnTotalEarned.func = function()
+		if XanGM_DB.showTotalEarned then
 			XanGM_DB.showTotalEarned = false
 			DEFAULT_CHAT_FRAME:AddMessage(L.SlashTotalEarnedOff)
 		else
 			XanGM_DB.showTotalEarned = true
 			DEFAULT_CHAT_FRAME:AddMessage(L.SlashTotalEarnedOn)
 		end
-
 		addon:UpdateButtonText()
 	end
 	btnTotalEarned:SetScript("OnClick", btnTotalEarned.func)
-
 	addConfigEntry(btnTotalEarned, 0, -30)
 	addon.aboutPanel.btnTotalEarned = btnTotalEarned
 
+	-- Font color toggle
 	local btnFontColor = createCheckbutton(addon.aboutPanel, L.SlashFontColorChkBtn)
 	btnFontColor:SetScript("OnShow", function() btnFontColor:SetChecked(XanGM_DB.fontColor) end)
-	btnFontColor.func = function(slashSwitch)
-		local value = XanGM_DB.fontColor
-		if not slashSwitch then value = XanGM_DB.fontColor end
-
-		if value then
+	btnFontColor.func = function()
+		if XanGM_DB.fontColor then
 			XanGM_DB.fontColor = false
 			DEFAULT_CHAT_FRAME:AddMessage(L.SlashFontColorOff)
 		else
@@ -253,17 +224,14 @@ function configFrame:EnableConfig()
 		end
 	end
 	btnFontColor:SetScript("OnClick", btnFontColor.func)
-
 	addConfigEntry(btnFontColor, 0, -20)
 	addon.aboutPanel.btnFontColor = btnFontColor
 
+	-- Achievement lifetime totals toggle
 	local btnAchLifetimeTotals = createCheckbutton(addon.aboutPanel, L.SlashAchLifetimeTotalsChkBtn)
 	btnAchLifetimeTotals:SetScript("OnShow", function() btnAchLifetimeTotals:SetChecked(XanGM_DB.useAchStatistics) end)
-	btnAchLifetimeTotals.func = function(slashSwitch)
-		local value = XanGM_DB.useAchStatistics
-		if not slashSwitch then value = XanGM_DB.useAchStatistics end
-
-		if value then
+	btnAchLifetimeTotals.func = function()
+		if XanGM_DB.useAchStatistics then
 			XanGM_DB.useAchStatistics = false
 			DEFAULT_CHAT_FRAME:AddMessage(L.SlashAchLifetimeTotalsOff)
 		else
@@ -273,8 +241,6 @@ function configFrame:EnableConfig()
 		end
 	end
 	btnAchLifetimeTotals:SetScript("OnClick", btnAchLifetimeTotals.func)
-
 	addConfigEntry(btnAchLifetimeTotals, 0, -20)
 	addon.aboutPanel.btnAchLifetimeTotals = btnAchLifetimeTotals
-
 end
